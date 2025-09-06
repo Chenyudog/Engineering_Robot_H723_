@@ -47,10 +47,8 @@ void arm_cmd_disable(void);
 typedef struct {
     float motor_min_limit;       // 电机最小角度限制
     float motor_max_limit;       // 电机最大角度限制
-    float initial_offset_rad;        // 电机的初始偏差（弧度）
-
-    float current_angle_rad;            // 电机的齿轮比
-    float last_angle_rad;            // 电机上一次的角度（弧度）
+    float initial_offset;        // 电机的初始偏差（弧度）
+    float last_angle;            // 电机上一次的角度（弧度）
     int calibrated;              // 校准状态
 } DMmotorControl;
 
@@ -67,8 +65,17 @@ struct arm_cmd_msg
     arm_mode_e last_mode;
 };
 
-// 限幅函数
+float normalize_radians(float radians);
+
 float clamp_radians(float radians, float min_limit, float max_limit);
+
+float ease_in_out(float t);
+
+void smooth_motion_1(hcan_t* hcan, motor_t* motor, float start_angle, float target_angle, int steps, int time_step_ms);
+
+void smooth_motion_0(hcan_t* hcan, motor_t* motor, float start_angle, float target_angle, int steps, int time_step_ms);
+
+float handle_angle_jump(float current_radians, float last_radians);
 
 void DMcontrol_motor_1(hcan_t* hcan, DMmotorControl* motor_control, float target_angle);
 
