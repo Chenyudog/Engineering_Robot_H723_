@@ -25,20 +25,24 @@
 #include "motor_def.h"
 #include "robot_task.h"
 #include "referee_system.h"
+#include "msg_freertos.h"
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
 //static struct chassis_fdb_msg chassis_fdb;
 //static struct trans_fdb_msg trans_fdb;
-//static struct ins_msg ins_data;
-//
-//static publisher_t *pub_chassis;
-//static subscriber_t *sub_cmd,*sub_ins,*sub_trans;
+
+static struct ins_msg ins_data;
+static float target_yaw = 0.0f;
+static pid_obj_t *chassis_yaw_pid;
+static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.373, 0.0, 0.0135, 0.0, 4.3, PID_Trapezoid_Intergral);
+
+static subscriber_t*sub_ins;
 //
 //static void chassis_pub_init(void);
-//static void chassis_sub_init(void);
+static void chassis_sub_init(void);
 //static void chassis_pub_push(void);
-//static void chassis_sub_pull(void);
+static void chassis_sub_pull(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 static uint32_t chassis_task_dwt = 0;   // 毫秒监测
@@ -71,21 +75,6 @@ static int16_t motor_control_0(dji_motor_measure_t measure)
     static int16_t motor_current_set = 0;
     static int16_t motor_max_current=0;   // 电流值范围：-16380~0~16380
     static int16_t chassis_power_limit=0;
-//    /*传参给局部变量防止被更改抽风*/
-//    chassis_power_limit=(int16_t)referee_fdb.robot_status.chassis_power_limit;
-//    /*底盘功率限制防止buffer溢出*/
-//    if(chassis_power_limit>=120)
-//    {
-//        chassis_power_limit=120;
-//    }
-//    if(referee_fdb.power_heat_data.buffer_energy<20)
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE*(referee_fdb.power_heat_data.buffer_energy/50);
-//    }
-//    else
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE;
-//    }
     if (chassis_power_limit==0)
     {
         motor_max_current = 8000;
@@ -100,21 +89,6 @@ static int16_t motor_control_1(dji_motor_measure_t measure)
     static int16_t motor_current_set = 0;
     static int16_t motor_max_current = 0;   // 电流值范围：-16380~0~16380,电流值限幅变量
     static int16_t chassis_power_limit = 0;
-//    /*传参给局部变量防止被更改抽风*/
-//    chassis_power_limit=(int16_t)referee_fdb.robot_status.chassis_power_limit;
-//    /*底盘功率限制防止buffer溢出*/
-//    if(chassis_power_limit>=120)
-//    {
-//        chassis_power_limit=120;
-//    }
-//    if(referee_fdb.power_heat_data.buffer_energy<20)
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE*(referee_fdb.power_heat_data.buffer_energy/50);
-//    }
-//    else
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE;
-//    }
     if (chassis_power_limit==0)
     {
         motor_max_current = 8000;
@@ -129,21 +103,6 @@ static int16_t motor_control_2(dji_motor_measure_t measure)
     static int16_t motor_current_set = 0;
     static int16_t motor_max_current = 0;   // 电流值范围：-16380~0~16380
     static int16_t chassis_power_limit = 0;
-//    /*传参给局部变量防止被更改抽风*/
-//    chassis_power_limit=(int16_t)referee_fdb.robot_status.chassis_power_limit;
-//    /*底盘功率限制防止buffer溢出*/
-//    if(chassis_power_limit>=120)
-//    {
-//        chassis_power_limit=120;
-//    }
-//    if(referee_fdb.power_heat_data.buffer_energy<20)
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE*(referee_fdb.power_heat_data.buffer_energy/50);
-//    }
-//    else
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE;
-//    }
     if (chassis_power_limit==0)
     {
         motor_max_current = 8000;
@@ -158,21 +117,6 @@ static int16_t motor_control_3(dji_motor_measure_t measure)
     static int16_t motor_current_set = 0;
     static int16_t motor_max_current = 0;   // 电流值范围：-16380~0~16380
     static int16_t chassis_power_limit = 0;
-//    /*传参给局部变量防止被更改抽风*/
-//    chassis_power_limit=(int16_t)referee_fdb.robot_status.chassis_power_limit;
-//    /*底盘功率限制防止buffer溢出*/
-//    if(chassis_power_limit>=120)
-//    {
-//        chassis_power_limit=120;
-//    }
-//    if(referee_fdb.power_heat_data.buffer_energy<20)
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE*(referee_fdb.power_heat_data.buffer_energy/50);
-//    }
-//    else
-//    {
-//        chassis_max_current=chassis_power_limit*CURRENT_POWER_LIMIT_RATE;
-//    }
     if (chassis_power_limit==0)
     {
         motor_max_current = 8000;
@@ -248,7 +192,11 @@ static void mecanum_calc(struct cmd_chassis_msg *cmd, int16_t* out_speed)
     VAL_LIMIT(cmd->vx, -MAX_CHASSIS_VX_SPEED, MAX_CHASSIS_VX_SPEED);  //m/s
     VAL_LIMIT(cmd->vy, -MAX_CHASSIS_VY_SPEED, MAX_CHASSIS_VY_SPEED);  //m/s
     VAL_LIMIT(cmd->vw, -MAX_CHASSIS_VW_SPEED, MAX_CHASSIS_VW_SPEED);  //rad/s
-
+    if(cmd_chassis.ctrl_mode == CHASSIS_ENABLE){
+        target_yaw -= cmd_chassis.vw * chassis_task_dt * 57.3;
+    }//加负号让其满足左加右
+    cmd->vw = -pid_calculate(chassis_yaw_pid,ins_data.yaw_total_angle,target_yaw);
+    VAL_LIMIT(cmd->vw, -MAX_CHASSIS_VW_SPEED, MAX_CHASSIS_VW_SPEED);  //rad/s
     // Vw的正负取决与遥感通道是否是正的还是负数的
     // 前后运动相反，则反转vx的正负
     // 左右运动相反，则反转vy的正负
@@ -338,7 +286,7 @@ void chassis_cmd_state_machine(void)
             memset(motor_target_speed_rpm, 0, sizeof(motor_target_speed_rpm));
             break;
         default:
-           // chassis_cmd_disable();
+            // chassis_cmd_disable();
             break;
     }
 }
@@ -350,11 +298,12 @@ void ChassisTask_Entry(void const * argument)
     chassis_motor_init();
     bsp_can_init();
     can_filter_init();
+    chassis_yaw_pid = pid_register(&chassis_yaw_config);   /* 注册 PID 实例 */
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 //    chassis_pub_init();
-//    chassis_sub_init();
+    chassis_sub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     chassis_task_dt = dwt_get_delta(&chassis_task_dwt);
@@ -368,7 +317,7 @@ void ChassisTask_Entry(void const * argument)
         chassis_task_dt = dwt_get_delta(&chassis_task_dwt);
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
-//        chassis_sub_pull();
+        chassis_sub_pull();
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
@@ -385,23 +334,21 @@ void ChassisTask_Entry(void const * argument)
 /* -------------------------------- 线程结束 ------------------------------- */
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-///**
-// * @brief chassis 线程中所有发布者初始化
-// */
+/**
+ * @brief chassis 线程中所有发布者初始化
+ */
 //static void chassis_pub_init(void)
 //{
 //    pub_chassis = pub_register("chassis_fdb",sizeof(struct chassis_fdb_msg));
 //}
-//
+
 ///**
 // * @brief chassis 线程中所有订阅者初始化
 // */
-//static void chassis_sub_init(void)
-//{
-//    sub_cmd = sub_register("chassis_cmd", sizeof(struct chassis_cmd_msg));
-//    sub_trans= sub_register("trans_fdb", sizeof(struct trans_fdb_msg));
-//    sub_ins = sub_register("ins_msg", sizeof(struct ins_msg));
-//}
+static void chassis_sub_init(void)
+{
+    sub_ins = sub_register("ins_pub", sizeof(struct ins_msg));
+}
 //
 ///**
 // * @brief chassis 线程中所有发布者推送更新话题
@@ -413,10 +360,8 @@ void ChassisTask_Entry(void const * argument)
 ///**
 // * @brief chassis 线程中所有订阅者获取更新话题
 // */
-//static void chassis_sub_pull(void)
-//{
-//    sub_get_msg(sub_cmd, &chassis_cmd);
-//    sub_get_msg(sub_trans, &trans_fdb);
-//    sub_get_msg(sub_ins, &ins_data);
-//}
+static void chassis_sub_pull(void)
+{
+    sub_get_msg(sub_ins, &ins_data);
+}
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
