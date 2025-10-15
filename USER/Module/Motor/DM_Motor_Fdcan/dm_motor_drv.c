@@ -145,12 +145,12 @@ void dm_motor_clear_err(hcan_t* hcan, motor_t *motor)
 **/
 void dm_motor_fbdata(motor_t *motor, uint8_t *rx_data)  //:TODO
 {
-	motor->para.id = (rx_data[0])&0x0F;
+	//motor->para.id = (rx_data[0])&0x0F;   //关闭，避免错误修改
 	motor->para.state = (rx_data[0])>>4;
 	motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
 	motor->para.v_int=(rx_data[3]<<4)|(rx_data[4]>>4);
 	motor->para.t_int=((rx_data[4]&0xF)<<8)|rx_data[5];
-	motor->para.pos = uint_to_float(motor->para.p_int, -motor->tmp.PMAX, motor->tmp.PMAX, 16); // (-12.5,12.5)
+    motor->para.pos = (uint_to_float(motor->para.p_int, -motor->tmp.PMAX, motor->tmp.PMAX, 16) *180.0f/3.1515926f );//rad转化为度，方便查看
 	motor->para.vel = uint_to_float(motor->para.v_int, -motor->tmp.VMAX, motor->tmp.VMAX, 12); // (-45.0,45.0)
 	motor->para.tor = uint_to_float(motor->para.t_int, -motor->tmp.TMAX, motor->tmp.TMAX, 12); // (-18.0,18.0)
 	motor->para.Tmos = (float)(rx_data[6]);

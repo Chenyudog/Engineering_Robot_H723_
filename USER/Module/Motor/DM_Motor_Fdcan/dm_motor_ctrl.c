@@ -31,7 +31,7 @@ void dm_motor_init(void)
     motor[Motor1].ctrl.pos_set = 0.0f;  // 初始位置
     motor[Motor1].ctrl.kp_set = 0.5f;   // 位置控制增益
     motor[Motor1].ctrl.kd_set = 0.1f;   // 速度控制增益
-    motor[Motor1].tmp.PMAX = 360.0f;    // 位置映射范围（可调）
+    motor[Motor1].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
     motor[Motor1].tmp.VMAX = 30.0f;     // 速度映射范围（可调）
 
     // 初始化电机2
@@ -43,7 +43,7 @@ void dm_motor_init(void)
     motor[Motor2].ctrl.pos_set = 0.0f;
     motor[Motor2].ctrl.kp_set = 0.5f;
     motor[Motor2].ctrl.kd_set = 0.1f;
-    motor[Motor2].tmp.PMAX = 360.0f;
+    motor[Motor2].tmp.PMAX = 12.5f;
     motor[Motor2].tmp.VMAX = 30.0f;
 
     // 初始化电机3
@@ -55,7 +55,7 @@ void dm_motor_init(void)
     motor[Motor3].ctrl.pos_set = 0.0f;
     motor[Motor3].ctrl.kp_set = 0.5f;
     motor[Motor3].ctrl.kd_set = 0.1f;
-    motor[Motor3].tmp.PMAX = 360.0f;
+    motor[Motor3].tmp.PMAX = 12.5f;
     motor[Motor3].tmp.VMAX = 30.0f;
 
     // 初始化电机4
@@ -67,7 +67,7 @@ void dm_motor_init(void)
     motor[Motor4].ctrl.pos_set = 0.0f;
     motor[Motor4].ctrl.kp_set = 0.5f;
     motor[Motor4].ctrl.kd_set = 0.1f;
-    motor[Motor4].tmp.PMAX = 360.0f;
+    motor[Motor4].tmp.PMAX = 12.5f;
     motor[Motor4].tmp.VMAX = 30.0f;
 
     // 初始化电机5
@@ -79,7 +79,7 @@ void dm_motor_init(void)
     motor[Motor5].ctrl.pos_set = 0.0f;
     motor[Motor5].ctrl.kp_set = 0.5f;
     motor[Motor5].ctrl.kd_set = 0.1f;
-    motor[Motor5].tmp.PMAX = 360.0f;
+    motor[Motor5].tmp.PMAX = 12.5f;
     motor[Motor5].tmp.VMAX = 30.0f;
 
     // 初始化电机6
@@ -91,7 +91,7 @@ void dm_motor_init(void)
     motor[Motor6].ctrl.pos_set = 0.0f;
     motor[Motor6].ctrl.kp_set = 0.5f;
     motor[Motor6].ctrl.kd_set = 0.1f;
-    motor[Motor6].tmp.PMAX = 360.0f;
+    motor[Motor6].tmp.PMAX = 12.5f;
     motor[Motor6].tmp.VMAX = 30.0f;
 
     // 可根据需求添加更多电机初始化代码
@@ -115,44 +115,44 @@ void read_all_motor_data(motor_t *motor)
 		case 5:  read_motor_data(motor->id, RID_ACC);       break; // ACC
 		case 6:  read_motor_data(motor->id, RID_DEC);       break; // DEC
 		case 7:  read_motor_data(motor->id, RID_MAX_SPD);   break; // MAX_SPD
-		case 8:  read_motor_data(motor->id, RID_MST_ID);    break; // MST_ID 
+		case 8:  read_motor_data(motor->id, RID_MST_ID);    break; // MST_ID
 		case 9:  read_motor_data(motor->id, RID_ESC_ID);    break; // ESC_ID
-		case 10: read_motor_data(motor->id, RID_TIMEOUT);   break; // TIMEOUT 
-		case 11: read_motor_data(motor->id, RID_CMODE);     break; // CTRL_MODE 
-		case 12: read_motor_data(motor->id, RID_DAMP);      break; // Damp 
+		case 10: read_motor_data(motor->id, RID_TIMEOUT);   break; // TIMEOUT
+		case 11: read_motor_data(motor->id, RID_CMODE);     break; // CTRL_MODE
+		case 12: read_motor_data(motor->id, RID_DAMP);      break; // Damp
 		case 13: read_motor_data(motor->id, RID_INERTIA);   break; // Inertia
-		case 14: read_motor_data(motor->id, RID_HW_VER);    break; // Rsv1 
-		case 15: read_motor_data(motor->id, RID_SW_VER);    break; // sw_ver 
-		case 16: read_motor_data(motor->id, RID_SN);        break; // Rsv2 
-		case 17: read_motor_data(motor->id, RID_NPP);       break; // NPP 
-		case 18: read_motor_data(motor->id, RID_RS);        break; // Rs 
-		case 19: read_motor_data(motor->id, RID_LS);        break; // Ls 
-		case 20: read_motor_data(motor->id, RID_FLUX);      break; // Flux 
-		case 21: read_motor_data(motor->id, RID_GR);        break; // Gr 
-		case 22: read_motor_data(motor->id, RID_PMAX);      break; // PMAX 
-		case 23: read_motor_data(motor->id, RID_VMAX);      break; // VMAX 
-		case 24: read_motor_data(motor->id, RID_TMAX);      break; // TMAX 
-		case 25: read_motor_data(motor->id, RID_I_BW);      break; // I_BW 
-		case 26: read_motor_data(motor->id, RID_KP_ASR);    break; // KP_ASR 
-		case 27: read_motor_data(motor->id, RID_KI_ASR);    break; // KI_ASR 
-		case 28: read_motor_data(motor->id, RID_KP_APR);    break; // KP_APR 
-		case 29: read_motor_data(motor->id, RID_KI_APR);    break; // KI_APR 
-		case 30: read_motor_data(motor->id, RID_OV_VALUE);  break; // OV_Value 
-		case 31: read_motor_data(motor->id, RID_GREF);      break; // GREF 
-		case 32: read_motor_data(motor->id, RID_DETA);      break; // Deta 
-		case 33: read_motor_data(motor->id, RID_V_BW);      break; // V_BW 
-		case 34: read_motor_data(motor->id, RID_IQ_CL);     break; // IQ_c1 
-		case 35: read_motor_data(motor->id, RID_VL_CL);     break; // VL_c1 
-		case 36: read_motor_data(motor->id, RID_CAN_BR);    break; // can_br 
-		case 37: read_motor_data(motor->id, RID_SUB_VER);   break; // sub_ver 
-		case 38: read_motor_data(motor->id, RID_U_OFF);     break; // u_off 
-		case 39: read_motor_data(motor->id, RID_V_OFF);     break; // v_off 
-		case 40: read_motor_data(motor->id, RID_K1);        break; // k1 
-		case 41: read_motor_data(motor->id, RID_K2);        break; // k2 
-		case 42: read_motor_data(motor->id, RID_M_OFF);     break; // m_off 
-		case 43: read_motor_data(motor->id, RID_DIR);       break; // dir 
-		case 44: read_motor_data(motor->id, RID_P_M);       break; // pm 
-		case 45: read_motor_data(motor->id, RID_X_OUT);     break; // xout 
+		case 14: read_motor_data(motor->id, RID_HW_VER);    break; // Rsv1
+		case 15: read_motor_data(motor->id, RID_SW_VER);    break; // sw_ver
+		case 16: read_motor_data(motor->id, RID_SN);        break; // Rsv2
+		case 17: read_motor_data(motor->id, RID_NPP);       break; // NPP
+		case 18: read_motor_data(motor->id, RID_RS);        break; // Rs
+		case 19: read_motor_data(motor->id, RID_LS);        break; // Ls
+		case 20: read_motor_data(motor->id, RID_FLUX);      break; // Flux
+		case 21: read_motor_data(motor->id, RID_GR);        break; // Gr
+		case 22: read_motor_data(motor->id, RID_PMAX);      break; // PMAX
+		case 23: read_motor_data(motor->id, RID_VMAX);      break; // VMAX
+		case 24: read_motor_data(motor->id, RID_TMAX);      break; // TMAX
+		case 25: read_motor_data(motor->id, RID_I_BW);      break; // I_BW
+		case 26: read_motor_data(motor->id, RID_KP_ASR);    break; // KP_ASR
+		case 27: read_motor_data(motor->id, RID_KI_ASR);    break; // KI_ASR
+		case 28: read_motor_data(motor->id, RID_KP_APR);    break; // KP_APR
+		case 29: read_motor_data(motor->id, RID_KI_APR);    break; // KI_APR
+		case 30: read_motor_data(motor->id, RID_OV_VALUE);  break; // OV_Value
+		case 31: read_motor_data(motor->id, RID_GREF);      break; // GREF
+		case 32: read_motor_data(motor->id, RID_DETA);      break; // Deta
+		case 33: read_motor_data(motor->id, RID_V_BW);      break; // V_BW
+		case 34: read_motor_data(motor->id, RID_IQ_CL);     break; // IQ_c1
+		case 35: read_motor_data(motor->id, RID_VL_CL);     break; // VL_c1
+		case 36: read_motor_data(motor->id, RID_CAN_BR);    break; // can_br
+		case 37: read_motor_data(motor->id, RID_SUB_VER);   break; // sub_ver
+		case 38: read_motor_data(motor->id, RID_U_OFF);     break; // u_off
+		case 39: read_motor_data(motor->id, RID_V_OFF);     break; // v_off
+		case 40: read_motor_data(motor->id, RID_K1);        break; // k1
+		case 41: read_motor_data(motor->id, RID_K2);        break; // k2
+		case 42: read_motor_data(motor->id, RID_M_OFF);     break; // m_off
+		case 43: read_motor_data(motor->id, RID_DIR);       break; // dir
+		case 44: read_motor_data(motor->id, RID_P_M);       break; // pm
+		case 45: read_motor_data(motor->id, RID_X_OUT);     break; // xout
     }
 }
 /**
@@ -168,9 +168,9 @@ void receive_motor_data(motor_t *motor, uint8_t *data)
 {
 	if(motor->tmp.read_flag == 0)
 		return ;
-	
+
 	float_type_u y;
-	
+
 	if(data[2] == 0x33)
 	{
 		uint16_t rid_value = data[3];
@@ -178,8 +178,8 @@ void receive_motor_data(motor_t *motor, uint8_t *data)
 		y.b_val[1] = data[5];
 		y.b_val[2] = data[6];
 		y.b_val[3] = data[7];
-		
-		switch (rid_value) 
+
+		switch (rid_value)
 		{
 			case RID_UV_VALUE: motor->tmp.UV_Value = y.f_val; motor->tmp.read_flag =  2; break;
 			case RID_KT_VALUE: motor->tmp.KT_Value = y.f_val; motor->tmp.read_flag =  3; break;
@@ -230,26 +230,5 @@ void receive_motor_data(motor_t *motor, uint8_t *data)
 	}
 }
 
-/**
-************************************************************************
-* @brief:      	fdcan1_rx_callback: CAN1接收回调函数
-* @param:      	void
-* @retval:     	void
-* @details:    	处理CAN1接收中断回调，根据接收到的ID和数据，执行相应的处理。
-*               当接收到ID为0时，调用dm4310_fbdata函数更新Motor的反馈数据。
-************************************************************************
-**/
-void fdcan1_rx_callback(void)
-{
-	uint16_t rec_id;
-	uint8_t rx_data[8] = {0};
-	fdcanx_receive(&hfdcan1, &rec_id, rx_data);
-	switch (rec_id)
-	{
- 		case 0x00: dm_motor_fbdata(&motor[Motor1], rx_data);
-         receive_motor_data(&motor[Motor1], rx_data);
-         break;
-	}
-}
 
 

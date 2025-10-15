@@ -159,6 +159,7 @@ typedef struct
     float Kd;
     float Tmos;
     float Tcoil;
+    float last_pos;
 } motor_fbpara_t;
 
 // 电机参数设置结构体
