@@ -28,20 +28,17 @@
 #include "msg_freertos.h"
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-//static struct chassis_cmd_msg chassis_cmd;
-//static struct chassis_fdb_msg chassis_fdb;
-//static struct trans_fdb_msg trans_fdb;
 
 static struct ins_msg ins_data;
 static float target_yaw = 0.0f;
 static pid_obj_t *chassis_yaw_pid;
 static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.373, 0.0, 0.0135, 0.0, 4.3, PID_Trapezoid_Intergral);
+static publisher_t * pub_chassis;
+static subscriber_t* sub_ins;
 
-static subscriber_t*sub_ins;
-//
-//static void chassis_pub_init(void);
+static void chassis_pub_init(void);
 static void chassis_sub_init(void);
-//static void chassis_pub_push(void);
+static void chassis_pub_push(void);
 static void chassis_sub_pull(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
@@ -52,6 +49,7 @@ static float chassis_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 
 struct cmd_chassis_msg cmd_chassis;
+
 
 extern struct referee_fdb_msg referee_fdb;
 
@@ -308,7 +306,7 @@ void ChassisTask_Entry(void const * argument)
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
-//    chassis_pub_init();
+    chassis_pub_init();
     chassis_sub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
@@ -332,7 +330,7 @@ void ChassisTask_Entry(void const * argument)
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-//        chassis_pub_push();
+        chassis_pub_push();
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
         vTaskDelay(1);
     }
@@ -343,29 +341,30 @@ void ChassisTask_Entry(void const * argument)
 /**
  * @brief chassis 线程中所有发布者初始化
  */
-//static void chassis_pub_init(void)
-//{
-//    pub_chassis = pub_register("chassis_fdb",sizeof(struct chassis_fdb_msg));
-//}
+static void chassis_pub_init(void)
+{
+    pub_chassis = pub_register("cmd_cha_pub",sizeof(struct cmd_chassis_msg));
+}
 
-///**
-// * @brief chassis 线程中所有订阅者初始化
-// */
+/**
+ * @brief chassis 线程中所有订阅者初始化
+ */
 static void chassis_sub_init(void)
 {
     sub_ins = sub_register("ins_pub", sizeof(struct ins_msg));
 }
-//
-///**
-// * @brief chassis 线程中所有发布者推送更新话题
-// */
-//static void chassis_pub_push(void)
-//{
-//    pub_push_msg(pub_chassis,&chassis_fdb);
-//}
-///**
-// * @brief chassis 线程中所有订阅者获取更新话题
-// */
+
+/**
+ * @brief chassis 线程中所有发布者推送更新话题
+ */
+static void chassis_pub_push(void)
+{
+    pub_push_msg(pub_chassis,&cmd_chassis);
+}
+
+/**
+ * @brief chassis 线程中所有订阅者获取更新话题
+ */
 static void chassis_sub_pull(void)
 {
     sub_get_msg(sub_ins, &ins_data);
