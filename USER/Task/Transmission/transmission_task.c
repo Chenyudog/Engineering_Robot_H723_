@@ -19,12 +19,19 @@
 #include "adc.h"
 #include "msg_freertos.h"
 #include "robot_task.h"
+#include "usbd_cdc_if.h"
 
+// 建议添加明确的宏定义，确保一致性
+#define HEAD_BUF_LEN        4       // 帧头长度（0-3字节）
+#define USB_INS_DATA_LEN    36      // 数据部分长度（9个int32_t）
+#define INS_BUF_LEN    42      //4+36+2
+#define MAX_USB_BUF_LEN     42
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static struct ins_msg transmission_subscribe_ins_data;
 
 static subscriber_t *subscribe_ins_topic;
+static uint8_t usb_txbuffer[MAX_USB_BUF_LEN] = {0};
 
 static void transmission_topic_publish_init(void);
 static void transmission_topic_subscribe_init(void);
@@ -37,24 +44,17 @@ static float transmission_task_dt = 0;       // 线程实际运行时间dt
 static float transmission_task_delta = 0;    // 监测线程运行时间
 static float transmission_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
-uint32_t adc_val = 0; // ADC采样值数组
-float vbus;
+
+void InsDataPack(void);
 
 /* -------------------------------- 线程入口 ------------------------------- */
 void TransmissionTask_Entry(void const * argument)
 {
 /* -------------------------------- 外设初始化段落 ------------------------------- */
-//    WS2812_SetBrightness(10);
-//    WS2812_SetRGB(COLOR_RED);
-//    HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
-//    HAL_ADC_Start_DMA(&hadc1, &adc_val,1);
-//    // 开启LCD背光
-//    LCD_Init();//LCD初始化
-//    LCD_Fill(0,0,LCD_W, LCD_H,BLACK);
+
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
-//    chassis_pub_init();
     transmission_topic_subscribe_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
@@ -73,14 +73,7 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-//        WS2812_Show(); // 显示设置的颜色
-//        vbus = (adc_val*3.3f/65535)*11.0f;
-//        LCD_ShowString(120, 72,(uint8_t *)"dmBot", BRRED, BLACK, 24, 0);
-//        LCD_ShowChinese(84, 100, (uint8_t *)"达妙科技", WHITE, BLACK, 32, 0);
-//        LCD_DrawLine(10, 0, 10,  280,WHITE);
-//        LCD_DrawLine(270,0, 270, 280,WHITE);
-//        LCD_ShowIntNum(50, 170, adc_val, 5, WHITE, BLACK, 32);
-//        LCD_ShowPicture(180, 150, 80, 80, gImage_1);
+        InsDataPack();
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -112,3 +105,57 @@ static void transmission_topic_subscribe_pull(void)
     sub_get_msg(subscribe_ins_topic, &transmission_subscribe_ins_data);
 }
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
+
+/* -------------------------------- 线程间通讯数据打包相关 ------------------------------- */
+
+
+void InsDataPack()
+{
+    // 初始化缓冲区，避免脏数据
+    memset(usb_txbuffer, 0, MAX_USB_BUF_LEN);
+
+    // 填充帧头信息
+    usb_txbuffer[0] = 0xFF;  // 帧头
+    usb_txbuffer[1] = 0x05;  // 地址
+    usb_txbuffer[2] = 0x13;  // 命名ID
+    usb_txbuffer[3] = USB_INS_DATA_LEN;  // 数据长度
+
+    const float scale = 10000.0f;
+    int32_t chassis_imu_eul_yaw = (int32_t)(transmission_subscribe_ins_data.yaw * scale);
+    int32_t chassis_imu_eul_pitch = (int32_t)(transmission_subscribe_ins_data.pitch * scale);
+    int32_t chassis_imu_eul_roll = (int32_t)(transmission_subscribe_ins_data.roll * scale);
+    int32_t chassis_imu_angle_x = (int32_t)(transmission_subscribe_ins_data.gyro[0] * scale);
+    int32_t chassis_imu_angle_y = (int32_t)(transmission_subscribe_ins_data.gyro[1] * scale);
+    int32_t chassis_imu_angle_z = (int32_t)(transmission_subscribe_ins_data.gyro[2] * scale);
+    int32_t chassis_imu_accel_x = (int32_t)(transmission_subscribe_ins_data.accel[0] * scale);
+    int32_t chassis_imu_accel_y = (int32_t)(transmission_subscribe_ins_data.accel[1] * scale);
+    int32_t chassis_imu_accel_z = (int32_t)(transmission_subscribe_ins_data.accel[2] * scale);
+
+    uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始
+    memcpy(&usb_txbuffer[offset], &chassis_imu_eul_yaw, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_eul_pitch, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_eul_roll, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_angle_x, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_angle_y, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_angle_z, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_accel_x, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_accel_y, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &chassis_imu_accel_z, sizeof(int32_t)); offset += sizeof(int32_t);
+
+    // 计算校验码（覆盖0到最后一个数据字节）
+    uint8_t sum_check = 0;
+    uint8_t addr_check = 0;
+    for (int i = 0; i < (HEAD_BUF_LEN + USB_INS_DATA_LEN); i++) {
+        sum_check += usb_txbuffer[i];
+        addr_check += sum_check;
+    }
+    usb_txbuffer[offset++] = sum_check;  // 40索引
+    usb_txbuffer[offset] = addr_check;   // 41索引
+
+    // 发送数据，检查返回值确保发送成功
+    if (CDC_Transmit_HS(usb_txbuffer, INS_BUF_LEN) != USBD_OK) {
+
+    }
+}
+
+/* -------------------------------- 线程间通讯数据打包相关 ------------------------------- */

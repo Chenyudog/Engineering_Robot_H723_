@@ -27,6 +27,7 @@
 #include "DMmotor_task.h"
 #include "pump.h"
 #include "vt13_vt03.h"
+#include "ins_task.h"
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
@@ -49,13 +50,13 @@ static float cmd_task_delta = 0;    // 监测线程运行时间
 static float cmd_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 
+
 extern sbus_data_t sbus_data_fdb;
 extern keyboard_control_t keyboard;
 
 extern vt13_remote_parsed_data_t vt13_remote_parsed_data_fdb;
 
 static pc_control_t pc_data;
-
 
 extern struct referee_fdb_msg referee_fdb;
 
@@ -164,8 +165,10 @@ void CmdTask_Entry(void const * argument)
 //}
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
-float text_vx = 0;
+static uint8_t fn_1_last_state = 0;  // 保存上次的状态,初始为未按下
+static uint8_t fn_2_last_state = 0;  // 保存上次的状态,初始为未按下
 extern pump_mode_e pump_mode;
+extern struct arm_cmd_msg arm_cmd;
 /* ------------------------------ 将遥控器数据转换为控制指令 ----------------------------- */
 void remote_to_cmd_sbus(void) {
     cmd_chassis.last_mode = cmd_chassis.ctrl_mode;
@@ -180,12 +183,21 @@ void remote_to_cmd_sbus(void) {
         cmd_chassis.vw = (vt13_remote_parsed_data_fdb.ch[0] * CHASSIS_VT13_RC_MOVE_RATIO_W / VT13_RC_MAX_VALUE
                           + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
 
-
         if (vt13_remote_parsed_data_fdb.mode_sw == 0) {  // 假设mode_sw=0为关闭
-            pump_mode = PUMP_CLOSE;
+            pump_mode =PUMP_OPEN ;
         } else if (vt13_remote_parsed_data_fdb.mode_sw == 1) {  // mode_sw=1为打开
-            pump_mode = PUMP_OPEN;
+            pump_mode = PUMP_CLOSE;
         }
+
+        if(vt13_remote_parsed_data_fdb.fn_1 && !fn_1_last_state){
+            cmd_chassis.ctrl_mode =! cmd_chassis.ctrl_mode;
+        }
+        fn_1_last_state = vt13_remote_parsed_data_fdb.fn_1;
+
+        if(vt13_remote_parsed_data_fdb.fn_2 && !fn_2_last_state ){
+            arm_cmd.ctrl_mode = !arm_cmd.ctrl_mode;
+        }
+        fn_2_last_state = vt13_remote_parsed_data_fdb.fn_2;
     } else {
         // 原SBUS遥控器数据（保持原有逻辑）
         cmd_chassis.vx = (sbus_data_fdb.ch2 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE
@@ -196,10 +208,22 @@ void remote_to_cmd_sbus(void) {
                           + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
 
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
-        if (sbus_data_fdb.sw3 == RC_MI) {
+        if (sbus_data_fdb.sw3 == RC_UP) {
             pump_mode = PUMP_CLOSE;
         } else if (sbus_data_fdb.sw3 == RC_DN) {
             pump_mode = PUMP_OPEN;
+        }
+
+        if (sbus_data_fdb.sw2 == RC_UP) {
+            cmd_chassis.ctrl_mode = CHASSIS_ENABLE;
+        } else if (sbus_data_fdb.sw2 == RC_DN) {
+            cmd_chassis.ctrl_mode = CHASSIS_RELAX;
+        }
+
+        if (sbus_data_fdb.sw1 == RC_UP) {
+            arm_cmd.ctrl_mode = ARM_ENABLE;
+        } else if (sbus_data_fdb.sw1 == RC_DN) {
+            arm_cmd.ctrl_mode = ARM_DISABLE;
         }
     }
 }
