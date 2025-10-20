@@ -191,11 +191,10 @@ static void mecanum_calc(struct cmd_chassis_msg *cmd, int16_t* out_speed)
     VAL_LIMIT(cmd->vy, -MAX_CHASSIS_VY_SPEED, MAX_CHASSIS_VY_SPEED);  //m/s
     VAL_LIMIT(cmd->vw, -MAX_CHASSIS_VW_SPEED, MAX_CHASSIS_VW_SPEED);  //rad/s
 
-    if(cmd_chassis.ctrl_mode == CHASSIS_ENABLE){
+    if (cmd_chassis.ctrl_mode == CHASSIS_ENABLE) {
         target_yaw -= cmd_chassis.vw * chassis_task_dt * 57.3;
     }//加负号让其满足左加右
-    else if(cmd_chassis.ctrl_mode == CHASSIS_RELAX)
-    {
+    else if (cmd_chassis.ctrl_mode == CHASSIS_RELAX) {
         target_yaw = ins_data.yaw_total_angle;
     }
 

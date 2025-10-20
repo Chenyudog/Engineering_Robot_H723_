@@ -16,11 +16,10 @@
 #include "transmission_task.h"
 #include "cmsis_os.h"
 #include "drv_dwt.h"
-#include "adc.h"
 #include "msg_freertos.h"
 #include "robot_task.h"
 #include "usbd_cdc_if.h"
-// 建议添加明确的宏定义，确保一致性
+
 #define MAX_USB_BUF_LEN     42
 #define HEAD_BUF_LEN        4       // 帧头长度（0-3字节:帧头0xFF、地址、命名ID、数据长度）
 
@@ -36,6 +35,7 @@ static struct ins_msg transmission_subscribe_ins_data;
 static struct cmd_chassis_msg transmission_subscribe_cmd_chassis_data;
 static struct cmd_chassis_msg receive_pc_cmd_chassis_data;
 
+static publisher_t *pc_cmd_topic_publish;
 static subscriber_t *subscribe_ins_topic;
 static subscriber_t *subscribe_cmd_chassis_topic;
 
@@ -79,6 +79,7 @@ void TransmissionTask_Entry(void const * argument)
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
     transmission_topic_subscribe_init();
+    transmission_topic_publish_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     transmission_task_dt = dwt_get_delta(&transmission_task_dwt);
@@ -121,18 +122,18 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static void transmission_topic_publish_init(void)
 {
-
+        pc_cmd_topic_publish = pub_register("pc_cmd",sizeof(struct cmd_chassis_msg));
 }
 
 static void transmission_topic_subscribe_init(void)
 {
-    subscribe_ins_topic = sub_register("ins_pub", sizeof(struct ins_msg));
-    subscribe_cmd_chassis_topic = sub_register("cmd_ch_pub", sizeof(struct cmd_chassis_msg));
+        subscribe_ins_topic = sub_register("ins_pub", sizeof(struct ins_msg));
+        subscribe_cmd_chassis_topic = sub_register("cmd_ch_pub", sizeof(struct cmd_chassis_msg));
 }
 
 static void transmission_topic_publish_push(void)
 {
-
+        pub_push_msg(pc_cmd_topic_publish,&receive_pc_cmd_chassis_data);
 }
 
 static void transmission_topic_subscribe_pull(void)
@@ -155,10 +156,11 @@ void uppack_pc_cmd_chassis_data(void)
                                              (Rx_data[9] << 8) |  // byte2占 23-16位
                                              (Rx_data[10] << 16)  |  // byte1占 15-8位
                                              (Rx_data[11] << 24)) / 10000.0f;    // byte0占 7-0位
-    receive_pc_cmd_chassis_data.vw = (float)((Rx_data[12] << 0) |  // byte3占 31-24位
-                                             (Rx_data[13] << 8) |  // byte2占 23-16位
-                                             (Rx_data[14] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[15] << 24)) / 10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_chassis_data.vw = (float)((Rx_data[24] << 0) |  // byte3占 31-24位
+                                             (Rx_data[25] << 8) |  // byte2占 23-16位
+                                             (Rx_data[26] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[27] << 24)) / 10000.0f;    // byte0占 7-0位
+    transmission_topic_publish_push();
 }
 void InsDataPack()
 {

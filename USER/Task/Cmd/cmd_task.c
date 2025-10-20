@@ -28,20 +28,22 @@
 #include "pump.h"
 #include "vt13_vt03.h"
 #include "ins_task.h"
-
+#include "msg_freertos.h"
+#include "chassis_task.h"
+#include "PID.h"
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
 //static struct chassis_fdb_msg chassis_fdb;
 //static struct trans_fdb_msg trans_fdb;
 //static struct ins_msg ins_data;
-//
+static struct cmd_chassis_msg pc_cmd_data;
 //static publisher_t *pub_chassis;
-//static subscriber_t *sub_cmd,*sub_ins,*sub_trans;
+static subscriber_t *pc_cmd;
 //
 //static void chassis_pub_init(void);
-//static void chassis_sub_init(void);
-//static void chassis_pub_push(void);
-//static void chassis_sub_pull(void);
+static void cmd_sub_init(void);
+//static void cmd_pub_push(void);
+static void cmd_sub_pull(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 static uint32_t cmd_task_dwt = 0;   // 毫秒监测
@@ -61,7 +63,6 @@ static pc_control_t pc_data;
 extern struct referee_fdb_msg referee_fdb;
 
 extern struct cmd_chassis_msg cmd_chassis;
-
 
 /* 外部变量声明 */
 /*键盘加速度的斜坡*/
@@ -94,7 +95,7 @@ void CmdTask_Entry(void const * argument)
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 //    chassis_pub_init();
-//    chassis_sub_init();
+      cmd_sub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     cmd_task_dt = dwt_get_delta(&cmd_task_dwt);
@@ -108,7 +109,7 @@ void CmdTask_Entry(void const * argument)
         cmd_task_dt = dwt_get_delta(&cmd_task_dwt);
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
-//        chassis_sub_pull();
+        cmd_sub_pull();
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
@@ -137,15 +138,13 @@ void CmdTask_Entry(void const * argument)
 //    pub_chassis = pub_register("chassis_fdb",sizeof(struct chassis_fdb_msg));
 //}
 //
-///**
-// * @brief chassis 线程中所有订阅者初始化
-// */
-//static void chassis_sub_init(void)
-//{
-//    sub_cmd = sub_register("chassis_cmd", sizeof(struct chassis_cmd_msg));
-//    sub_trans= sub_register("trans_fdb", sizeof(struct trans_fdb_msg));
-//    sub_ins = sub_register("ins_msg", sizeof(struct ins_msg));
-//}
+/**
+ * @brief chassis 线程中所有订阅者初始化
+ */
+static void cmd_sub_init(void)
+{
+    pc_cmd = sub_register("pc_cmd", sizeof(struct cmd_chassis_msg));
+}
 //
 ///**
 // * @brief chassis 线程中所有发布者推送更新话题
@@ -154,15 +153,13 @@ void CmdTask_Entry(void const * argument)
 //{
 //    pub_push_msg(pub_chassis,&chassis_fdb);
 //}
-///**
-// * @brief chassis 线程中所有订阅者获取更新话题
-// */
-//static void chassis_sub_pull(void)
-//{
-//    sub_get_msg(sub_cmd, &chassis_cmd);
-//    sub_get_msg(sub_trans, &trans_fdb);
-//    sub_get_msg(sub_ins, &ins_data);
-//}
+/**
+ * @brief chassis 线程中所有订阅者获取更新话题
+ */
+static void cmd_sub_pull(void)
+{
+    sub_get_msg(pc_cmd, &pc_cmd_data);
+}
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static uint8_t fn_1_last_state = 0;  // 保存上次的状态,初始为未按下
@@ -200,13 +197,21 @@ void remote_to_cmd_sbus(void) {
         fn_2_last_state = vt13_remote_parsed_data_fdb.fn_2;
     } else {
         // 原SBUS遥控器数据（保持原有逻辑）
-        cmd_chassis.vx = (sbus_data_fdb.ch2 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE
-                          + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y);
-        cmd_chassis.vy = (sbus_data_fdb.ch4 * CHASSIS_RC_MOVE_RATIO_Y / RC_MAX_VALUE
-                          + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X);
-        cmd_chassis.vw = (sbus_data_fdb.ch1 * CHASSIS_RC_MOVE_RATIO_W / RC_MAX_VALUE
-                          + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
-
+        if(sbus_data_fdb.sw4 == RC_DN)
+        {
+            cmd_chassis.vx = pc_cmd_data.vx;
+            cmd_chassis.vy = pc_cmd_data.vy;
+            cmd_chassis.vw = pc_cmd_data.vw;
+        }
+        else
+        {
+            cmd_chassis.vx = (sbus_data_fdb.ch2 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE
+                              + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y);
+            cmd_chassis.vy = (sbus_data_fdb.ch4 * CHASSIS_RC_MOVE_RATIO_Y / RC_MAX_VALUE
+                              + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X);
+            cmd_chassis.vw = (sbus_data_fdb.ch1 * CHASSIS_RC_MOVE_RATIO_W / RC_MAX_VALUE
+                              + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
+        }
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
         if (sbus_data_fdb.sw3 == RC_UP) {
             pump_mode = PUMP_CLOSE;

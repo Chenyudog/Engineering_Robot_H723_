@@ -43,8 +43,6 @@ static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤
 static float dm_angles[6] = {0.0f};   // 队列读取值
 static float dm_motor_angles[6] = {0.0f};   // 期望角度值
 
-static const float MAX_ANGLE_CHANGE = 0.2f;  // 提高角度限制幅度会提高跟手度
-
 extern QueueHandle_t xControlQueue;
 
 DMmotorControl motor_controls[6] = {
