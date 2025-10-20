@@ -321,6 +321,38 @@ void fdcan2_rx_callback(void)
     fdcanx_receive(&hfdcan2, &rec_id, rx_data);
     rec_id = (rx_data[0]) & 0x0F;
     switch (rec_id) {
+        case 1: {
+            float raw_pos;
+            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
+            dm_motor_fbdata(&motor[Motor1], rx_data);
+            raw_pos = motor[Motor1].para.pos;
+
+            motor2_buf[motor2_buf_idx] = raw_pos;
+            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
+
+            float sorted_buf[5];
+            for (int i = 0; i < 5; i++) {
+                sorted_buf[i] = motor2_buf[i];
+            }
+
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4 - i; j++) {
+                    if (sorted_buf[j] > sorted_buf[j + 1]) {
+                        float temp = sorted_buf[j];
+                        sorted_buf[j] = sorted_buf[j + 1];
+                        sorted_buf[j + 1] = temp;
+                    }
+                }
+            }
+
+            motor[Motor1].para.pos = sorted_buf[2];
+            if (motor[Motor1].para.pos > 150.0f)
+                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+            else if (motor[Motor1].para.pos < -10.0f)
+                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+            break;
+        }
+
         case 2: {
             float raw_pos;
             motor[Motor2].para.last_pos = motor[Motor2].para.pos;
@@ -477,6 +509,37 @@ void fdcan2_rx_callback(void)
                 motor[Motor6].para.pos = motor[Motor6].para.last_pos;
             else if (motor[Motor6].para.pos < -200.0f)
                 motor[Motor6].para.pos = motor[Motor6].para.last_pos;
+            break;
+        }
+
+        case 7: {
+            float raw_pos;
+            motor[Motor7].para.last_pos = motor[Motor7].para.pos;
+            dm_motor_fbdata(&motor[Motor7], rx_data);
+            raw_pos = motor[Motor7].para.pos;
+
+            motor6_buf[motor6_buf_idx] = raw_pos;
+            motor6_buf_idx = (motor6_buf_idx + 1) % 5;
+
+            float sorted_buf[5];
+            for (int i = 0; i < 5; i++) {
+                sorted_buf[i] = motor6_buf[i];
+            }
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4 - i; j++) {
+                    if (sorted_buf[j] > sorted_buf[j + 1]) {
+                        float temp = sorted_buf[j];
+                        sorted_buf[j] = sorted_buf[j + 1];
+                        sorted_buf[j + 1] = temp;
+                    }
+                }
+            }
+
+            motor[Motor7].para.pos = sorted_buf[2];
+            if (motor[Motor7].para.pos > 200.0f)
+                motor[Motor7].para.pos = motor[Motor7].para.last_pos;
+            else if (motor[Motor6].para.pos < -200.0f)
+                motor[Motor7].para.pos = motor[Motor7].para.last_pos;
             break;
         }
         default:

@@ -17,6 +17,7 @@
 #include <math.h>
 #include "DMmotor_task.h"
 #include "drv_dwt.h"
+#include "PID.h"
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
@@ -39,9 +40,12 @@ static float DMmotor_task_delta = 0;    // 监测线程运行时间
 static float DMmotor_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 
-static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤波的值
-static float dm_angles[6] = {0.0f};   // 队列读取值
-static float dm_motor_angles[6] = {0.0f};   // 期望角度值
+static float current_angle[7] = {0.0f};        // 实际的关节输出角度，也是需要滤波的值
+static float dm_angles[7] = {0.0f};   // 队列读取值
+static float dm_motor_angles[7] = {0.0f};   // 期望角度值
+
+static pid_obj_t *claw_torque_pid;
+static pid_config_t claw_torque_config = INIT_PID_CONFIG(0.0, 0.0, 0.0, 0.0, 0.0, PID_Integral_Limit);
 
 extern QueueHandle_t xControlQueue;
 
@@ -53,6 +57,8 @@ DMmotorControl motor_controls[6] = {
         { MOTOR_5_MIN_LIMIT, MOTOR_5_MAX_LIMIT, 0.0f, 0.0f, 0 }, // Motor 4 (FDCAN2)
         { -M_PI, M_PI, 0.0f, 0.0f, 0 }  // Motor 5 (FDCAN2)
 };
+
+extern motor_t motor[num];//读取到的电机数据  //不可以修改
 
 struct arm_cmd_msg arm_cmd = {
         .ctrl_mode = ARM_DISABLE,
@@ -142,6 +148,8 @@ void DMmotorTask_Entry(void const * argument)
     }
     arm_cmd.ctrl_mode = ARM_ENABLE; // 使能机械臂
     arm_cmd.last_mode = ARM_ENABLE;
+
+    claw_torque_pid = pid_register(&claw_torque_config);   /* 注册 PID 实例 */
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
@@ -165,7 +173,7 @@ void DMmotorTask_Entry(void const * argument)
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
-            for(uint8_t i=0;i<6;i++){
+            for(uint8_t i=0;i<7;i++){
                 dm_motor_angles[i] = dm_angles[i];
             }
             DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
@@ -174,6 +182,7 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
+            DMcontrol_motor_7(&hfdcan2, &motor_controls[Motor7], dm_motor_angles[Motor7]);
         }
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
@@ -256,6 +265,11 @@ void smooth_motion_5(hcan_t* hcan, motor_t* motor, float target_angle) {
 void smooth_motion_6(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[5] = target_angle;
     pos_ctrl(hcan, motor->id, -current_angle[5], 10.0f);
+}
+
+void smooth_motion_7(hcan_t* hcan, motor_t* motor, float target_angle,float target_torque) {
+    current_angle[6] = target_angle;
+    mit_ctrl(hcan,&motor[Motor7],motor->id,-current_angle[6], 10.0f, 0.0f, 0.0f, target_torque);
 }
 
 void DMcontrol_motor_1(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
@@ -372,4 +386,25 @@ void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target
 
     }
 }
+
+void DMcontrol_motor_7(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
+    if (!motor_control->calibrated) {
+        if (dm_motor_angles[Motor7] == 0) {
+            motor_control->calibrated = 0;
+        }else{
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor7]);
+            motor_control->calibrated = 1;
+        }
+    }else if(motor_control->calibrated == 1){
+        motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
+
+        float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
+
+        smooth_motion_7(hcan, &motor[Motor7], angle,0.0f);
+
+        motor_control->last_angle_rad = motor_control->current_angle_rad;
+
+    }
+}
+
 
