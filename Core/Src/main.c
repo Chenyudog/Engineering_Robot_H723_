@@ -36,6 +36,7 @@
 #include "dm_motor_ctrl.h"
 #include "BMI088driver.h"
 #include "robot.h"
+#include "bsp_log.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -134,9 +135,9 @@ int main(void)
 ////	bsp_fdcan_set_baud(&hfdcan1, CAN_FD_BRS, CAN_BR_1M);
     bsp_can_init();
     dm_motor_init();
-
+    BSPLogInit();
     robot_init();
-
+    LOGINFO("START");
     // 创建队列
     xKalmanOneQueue = xQueueCreate(KalmanOne_QUEUE_LENGTH, KalmanOne_QUEUE_ITEM_SIZE);
     if (xKalmanOneQueue == NULL) {

@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 /* 配置区 -------------------------------------------------*/
-#define NUM_JOINTS 6  // 新增通道数定义,表示6个浮点数
+#define NUM_JOINTS 7  // 新增通道数定义,表示6个浮点数
 
 // 取消注释以下行使用双精度
 // #define USE_DOUBLE_PRECISION

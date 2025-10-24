@@ -122,6 +122,10 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Module/Remote_Control/FS_SBUS
         USER/Module/Remote_Control/Keyboard
         USER/Module/Remote_Control/VT13_VT03
+        USER/Module/rtt_log/log
+        USER/Module/rtt_log/SEGGER/Config
+        USER/Module/rtt_log/SEGGER/RTT
+
 
         USER/Task/Algorithm
         USER/Task/Chassis
@@ -166,6 +170,10 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Module/Remote_Control/FS_SBUS/*.*"
         "USER/Module/Remote_Control/Keyboard/*.*"
         "USER/Module/Remote_Control/VT13_VT03/*.*"
+        "USER/Module/rtt_log/log/*.*"
+        "USER/Module/rtt_log/log/*.*"
+        "USER/Module/rtt_log/SEGGER/Config/*.*"
+        "USER/Module/rtt_log/SEGGER/RTT/*.*"
 
         "USER/Task/Algorithm/*.*"
         "USER/Task/Chassis/*.*"
