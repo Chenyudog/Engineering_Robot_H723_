@@ -1,0 +1,194 @@
+#include "stm32h7xx_hal.h"
+#include "cmsis_os.h"
+#include "drv_dwt.h"
+#include "Power_task.h"
+#include "myi2c.h"
+
+/* -------------------------------- 调试监测线程相关 --------------------------------- */
+static uint32_t power_task_dwt = 0;   // 毫秒监测
+static float power_task_dt = 0;       // 线程实际运行时间dt
+static float power_task_delta = 0;    // 监测线程运行时间
+static float power_task_start_dt = 0; // 监测线程开始时间
+/* -------------------------------- 调试监测线程相关 --------------------------------- */
+uint16_t reg;
+void PowerTask_Entry(void const * argument)
+{
+
+    power_task_dt = dwt_get_delta(&power_task_dwt);
+    power_task_start_dt = dwt_get_time_ms();
+    INA226_Init();
+/* -------------------------------- 调试监测线程调度 --------------------------------- */
+    for(;;)
+    {
+/* -------------------------------- 调试监测线程调度 --------------------------------- */
+    power_task_delta = dwt_get_time_ms() - power_task_start_dt;
+    power_task_start_dt = dwt_get_time_ms();
+    power_task_dt = dwt_get_delta(&power_task_dwt);
+    INA226_UpdateData();
+
+    //reg = INA226_ReadRegister(0x00);
+
+    dwt_delay_us(1);
+    }
+
+}
+
+
+// 全局变量定义
+float ina226_bus_voltage = 0.0f;    // 总线电压（V）
+float ina226_shunt_voltage = 0.0f;  // 分流电压（mV）
+float ina226_current = 0.0f;        // 电流（A）
+float ina226_power = 0.0f;          // 功率（W）
+
+/**
+ * @brief  初始化INA226（含IIC初始化+寄存器配置）
+ * @param  无
+ * @retval 无
+ */
+void INA226_Init(void) {
+    IIC_Init();  // 初始化软件IIC引脚
+
+    // 配置寄存器
+    INA226_WriteRegister(INA226_REG_CONFIG, INA226_CONFIG_DEFAULT);
+    dwt_delay_us(5);
+
+    // 校准寄存器（关键：决定电流/功率计算精度）
+    INA226_WriteRegister(INA226_REG_CALIB, INA226_CALIB_DEFAULT);
+    dwt_delay_us(5);
+}
+
+/**
+ * @brief  向INA226寄存器写入数据
+ * @param  reg_addr：寄存器地址
+ * @param  data：16位数据
+ * @retval HAL_StatusTypeDef：成功返回HAL_OK，失败返回HAL_ERROR
+ */
+HAL_StatusTypeDef INA226_WriteRegister(uint8_t reg_addr, uint16_t data) {
+    IIC_Start();  // 发送起始信号
+
+    // 发送从机地址（写操作：7位地址左移1位 + 0）
+    IIC_Send_Byte((INA226_I2C_ADDR << 1) | 0x00);
+    if (IIC_Wait_Ack() != 0) {  // 等待应答
+        IIC_Stop();
+        return HAL_ERROR;
+    }
+
+    // 发送寄存器地址
+    IIC_Send_Byte(reg_addr);
+    if (IIC_Wait_Ack() != 0) {
+        IIC_Stop();
+        return HAL_ERROR;
+    }
+
+    // 发送高8位数据
+    IIC_Send_Byte((data >> 8) & 0xFF);
+    if (IIC_Wait_Ack() != 0) {
+        IIC_Stop();
+        return HAL_ERROR;
+    }
+
+    // 发送低8位数据
+    IIC_Send_Byte(data & 0xFF);
+    if (IIC_Wait_Ack() != 0) {
+        IIC_Stop();
+        return HAL_ERROR;
+    }
+
+    IIC_Stop();  // 发送停止信号
+    return HAL_OK;
+}
+
+/**
+ * @brief  从INA226寄存器读取数据
+ * @param  reg_addr：寄存器地址
+ * @retval 16位数据（失败返回0xFFFF）
+ */
+uint16_t INA226_ReadRegister(uint8_t reg_addr) {
+    uint8_t rx_high, rx_low;
+
+    IIC_Start();  // 发送起始信号
+
+    // 发送从机地址（写操作：选择寄存器）
+    IIC_Send_Byte((INA226_I2C_ADDR << 1) | 0x00);
+    if (IIC_Wait_Ack() != 0) {
+        IIC_Stop();
+        return 0xFFFF;
+    }
+
+    // 发送要读取的寄存器地址
+    IIC_Send_Byte(reg_addr);
+    if (IIC_Wait_Ack() != 0) {
+        IIC_Stop();
+        return 0xFFFF;
+    }
+
+    // 重复起始信号（切换到读操作）
+    IIC_Start();
+    IIC_Send_Byte((INA226_I2C_ADDR << 1) | 0x01);  // 读操作：地址左移1位 + 1
+    if (IIC_Wait_Ack() != 0) {
+        IIC_Stop();
+        return 0xFFFF;
+    }
+
+    // 读取高8位（需应答）和低8位（无需应答）
+    rx_high = IIC_Read_Byte(1);  // 读高8位，发送ACK
+    rx_low  = IIC_Read_Byte(0);  // 读低8位，发送NACK
+    IIC_Stop();
+
+    // 组合16位数据（大端模式）
+    return (rx_high << 8) | rx_low;
+}
+
+/**
+ * @brief  更新所有测量数据（总线电压/分流电压/电流/功率）
+ * @param  无
+ * @retval 无
+ */
+void INA226_UpdateData(void) {
+    uint16_t raw_data;
+    int16_t signed_data;
+
+    // 读取总线电压（无符号）
+    raw_data = INA226_ReadRegister(INA226_REG_BUS_V);
+    if (raw_data != 0xFFFF) {
+        // 总线电压 = 原始值 * 1.25mV → 转换为V（除以1000）
+        ina226_bus_voltage = raw_data * INA226_BUS_V_LSB / 1000.0f;
+    }
+    dwt_delay_us(1);
+    
+
+    // 读取分流电压（有符号）
+    raw_data = INA226_ReadRegister(INA226_REG_SHUNT_V);
+    if (raw_data != 0xFFFF) {
+        signed_data = (int16_t)raw_data;  // 转换为有符号数（补码）
+        // 分流电压 = 原始值 * 2.5uV → 转换为mV（除以1000）
+        ina226_shunt_voltage = signed_data * INA226_SHUNT_V_LSB / 1000.0f;
+    }
+    dwt_delay_us(1);
+
+    // 读取电流（有符号，依赖校准值）
+    raw_data = INA226_ReadRegister(INA226_REG_CURRENT);
+    if (raw_data != 0xFFFF) {
+        signed_data = (int16_t)raw_data;
+        ina226_current = signed_data * INA226_CURRENT_LSB;
+    }
+
+    // 读取功率（无符号，依赖校准值）
+    raw_data = INA226_ReadRegister(INA226_REG_POWER);
+    if (raw_data != 0xFFFF) {
+        ina226_power = raw_data * INA226_POWER_LSB;
+    }
+    dwt_delay_us(1);
+}
+
+/**
+ * @brief  检查INA226设备ID（验证I2C通信）
+ * @param  无
+ * @retval 1：ID匹配（通信正常），0：失败
+ */
+uint8_t INA226_CheckID(void) {
+    uint16_t man_id, dev_id;
+    man_id = INA226_ReadRegister(INA226_REG_MAN_ID);  // 制造商ID：0x5449
+    dev_id = INA226_ReadRegister(INA226_REG_DEV_ID);  // 设备ID：0x2260
+    return (man_id == 0x5449 && dev_id == 0x2260) ? 1 : 0;
+}
