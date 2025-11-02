@@ -116,7 +116,7 @@ void CmdTask_Entry(void const * argument)
         pc_data = convert_remote_to_pc(&referee_fdb.remote_control);
         PC_keyboard_mouse(&pc_data);
         chassis_cmd_state_machine();
-        pum_ctrl();
+        //pum_ctrl();
         arm_cmd_state_machine(); // 机械臂状态机
         remote_to_cmd_sbus();
 /* -------------------------------- 线程代码编写段落 ------------------------------- */

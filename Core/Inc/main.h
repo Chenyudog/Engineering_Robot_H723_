@@ -53,7 +53,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void delay_us(__IO uint32_t delay);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -67,10 +67,10 @@ void Error_Handler(void);
 #define CS1_ACCEL_GPIO_Port GPIOC
 #define CS1_GYRO_Pin GPIO_PIN_3
 #define CS1_GYRO_GPIO_Port GPIOC
-#define PUMP1_Pin GPIO_PIN_0
-#define PUMP1_GPIO_Port GPIOA
-#define PUMP2_Pin GPIO_PIN_2
-#define PUMP2_GPIO_Port GPIOA
+#define SCL_Pin GPIO_PIN_0
+#define SCL_GPIO_Port GPIOA
+#define SDA_Pin GPIO_PIN_2
+#define SDA_GPIO_Port GPIOA
 #define DCMI_PWDN_Pin GPIO_PIN_5
 #define DCMI_PWDN_GPIO_Port GPIOC
 #define IMU_HEAT_Pin GPIO_PIN_1

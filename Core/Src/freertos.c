@@ -56,6 +56,7 @@ osThreadId TranmissionTaskHandle;
 osThreadId UsartTaskHandle;
 osThreadId InsTaskHandle;
 osThreadId DJmotorTaskHandle;
+osThreadId PowerTaskHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -71,6 +72,7 @@ void TransmissionTask_Entry(void const * argument);
 void UsartTask_Entry(void const * argument);
 void InsTask_Entry(void const * argument);
 void DJmotorTask_Entry(void const * argument);
+void PowerTask_Entry(void const * argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -169,6 +171,10 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of DJmotorTask */
   osThreadDef(DJmotorTask, DJmotorTask_Entry, osPriorityHigh, 0, 1024);
   DJmotorTaskHandle = osThreadCreate(osThread(DJmotorTask), NULL);
+
+  /* definition and creation of PowerTask */
+  osThreadDef(PowerTask, PowerTask_Entry, osPriorityHigh, 0, 128);
+  PowerTaskHandle = osThreadCreate(osThread(PowerTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -338,6 +344,24 @@ __weak void DJmotorTask_Entry(void const * argument)
     osDelay(1);
   }
   /* USER CODE END DJmotorTask_Entry */
+}
+
+/* USER CODE BEGIN Header_PowerTask_Entry */
+/**
+* @brief Function implementing the PowerTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_PowerTask_Entry */
+__weak void PowerTask_Entry(void const * argument)
+{
+  /* USER CODE BEGIN PowerTask_Entry */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END PowerTask_Entry */
 }
 
 /* Private application code --------------------------------------------------*/

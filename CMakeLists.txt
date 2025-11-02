@@ -125,6 +125,7 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Module/rtt_log/log
         USER/Module/rtt_log/SEGGER/Config
         USER/Module/rtt_log/SEGGER/RTT
+        USER/Module/Myi2c
 
 
         USER/Task/Algorithm
@@ -138,6 +139,7 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Task/Robot_Config
         USER/Task/Transmission
         USER/Task/USART
+        USER/Task/ina226
 )
 
 add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32H723xx -DUSE_PWR_LDO_SUPPLY)
@@ -171,9 +173,9 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Module/Remote_Control/Keyboard/*.*"
         "USER/Module/Remote_Control/VT13_VT03/*.*"
         "USER/Module/rtt_log/log/*.*"
-        "USER/Module/rtt_log/log/*.*"
         "USER/Module/rtt_log/SEGGER/Config/*.*"
         "USER/Module/rtt_log/SEGGER/RTT/*.*"
+        "USER/Module/Myi2c/*.*"
 
         "USER/Task/Algorithm/*.*"
         "USER/Task/Chassis/*.*"
@@ -186,6 +188,7 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Task/Robot_Config/*.*"
         "USER/Task/Transmission/*.*"
         "USER/Task/USART/*.*"
+        "USER/Task/ina226/*.*"
 
 )
 

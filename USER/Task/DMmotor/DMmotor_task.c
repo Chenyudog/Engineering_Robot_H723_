@@ -173,7 +173,7 @@ void DMmotorTask_Entry(void const * argument)
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
-            for(uint8_t i=0;i<7;i++){
+            for(uint8_t i=0;i<6;i++){
                 dm_motor_angles[i] = dm_angles[i];
             }
             DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
@@ -182,7 +182,7 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
-            DMcontrol_motor_7(&hfdcan2, &motor_controls[Motor7], dm_motor_angles[Motor7]);
+            //DMcontrol_motor_7(&hfdcan2, &motor_controls[Motor7], dm_motor_angles[Motor7]);
         }
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
@@ -387,24 +387,24 @@ void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target
     }
 }
 
-void DMcontrol_motor_7(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
-    if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor7] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor7]);
-            motor_control->calibrated = 1;
-        }
-    }else if(motor_control->calibrated == 1){
-        motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
-
-        float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
-
-        smooth_motion_7(hcan, &motor[Motor7], angle,0.0f);
-
-        motor_control->last_angle_rad = motor_control->current_angle_rad;
-
-    }
-}
+//void DMcontrol_motor_7(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
+//    if (!motor_control->calibrated) {
+//        if (dm_motor_angles[Motor7] == 0) {
+//            motor_control->calibrated = 0;
+//        }else{
+//            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor7]);
+//            motor_control->calibrated = 1;
+//        }
+//    }else if(motor_control->calibrated == 1){
+//        motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
+//
+//        float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
+//
+//        smooth_motion_7(hcan, &motor[Motor7], angle,0.0f);
+//
+//        motor_control->last_angle_rad = motor_control->current_angle_rad;
+//
+//    }
+//}
 
 

@@ -75,7 +75,37 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define CPU_FREQUENCY_MHZ    480		// STM32时钟主频
+void delay_us(__IO uint32_t delay)
+{
+    int last, curr, val;
+    int temp;
 
+    while (delay != 0)
+    {
+        temp = delay > 900 ? 900 : delay;
+        last = SysTick->VAL;
+        curr = last - CPU_FREQUENCY_MHZ * temp;
+        if (curr >= 0)
+        {
+            do
+            {
+                val = SysTick->VAL;
+            }
+            while ((val < last) && (val >= curr));
+        }
+        else
+        {
+            curr += CPU_FREQUENCY_MHZ * 1000;
+            do
+            {
+                val = SysTick->VAL;
+            }
+            while ((val <= last) || (val > curr));
+        }
+        delay -= temp;
+    }
+}
 /* USER CODE END 0 */
 
 /**
@@ -94,7 +124,7 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* USER CODE BEGIN Init */
+  /* USER   N        JKJGH    CODE BEGIN Init */
 
   /* USER CODE END Init */
 
@@ -121,6 +151,7 @@ int main(void)
   MX_TIM12_Init();
   MX_ADC1_Init();
   MX_SPI1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
     MX_USB_DEVICE_Init();
     dwt_init();
@@ -151,10 +182,6 @@ int main(void)
         Error_Handler();
     }
 
-    HAL_GPIO_WritePin(PUMP1_GPIO_Port, PUMP1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(PUMP2_GPIO_Port, PUMP2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(PUMP2_1_GPIO_Port, PUMP2_1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(PUMP2_2_GPIO_Port, PUMP2_2_Pin, GPIO_PIN_RESET);
 
 //    write_motor_data(motor[Motor1].id, 10, mit_mode, 0, 0, 0);
 //	write_motor_data(motor[Motor1].id, 35, CAN_BR_5M, 0, 0, 0);
