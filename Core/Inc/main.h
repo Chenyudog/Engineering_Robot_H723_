@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#define			power(x)			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, x)
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -53,7 +53,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void delay_us(__IO uint32_t delay);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

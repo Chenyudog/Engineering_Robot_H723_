@@ -143,6 +143,7 @@ static arm_status rls_arm_allocate_memory(rls_arm_instance_f32 *S)
 /**
  * @brief RLS核心更新算法
  */
+float32_t p_mat_w_data_look;
 static arm_status rls_arm_update_core(rls_arm_instance_f32 *S, 
                                      const float32_t *p_input, 
                                      float32_t reference, 
@@ -252,12 +253,14 @@ static arm_status rls_arm_update_core(rls_arm_instance_f32 *S,
  * @brief RLS直接向量更新算法（不使用滑动窗口）
  * @note 用于向量输入版本，输入向量直接作为特征向量使用
  */
+
 static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
                                        const float32_t *p_input_vec,
                                        float32_t reference,
                                        float32_t *p_output,
                                        float32_t *p_error)
 {
+
     arm_status status;
     uint16_t num_taps = S->num_taps;
     
@@ -269,7 +272,7 @@ static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
     arm_dot_prod_f32(p_input_vec, S->p_mat_w_data, num_taps, &output);
     //////////////////////////////////////////////yk-o*T*Θk-1
     *p_output = output;
-    
+
     // 3. 计算误差: e = d - y
     float32_t error = reference - output;
     *p_error = error;
@@ -282,7 +285,7 @@ static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
         LOGERROR("RLS_ARM: Matrix multiplication failed");
         return status;
     }
-    
+
     // 计算 x^T * P * x
     float32_t k_den = 0.0f;
     arm_dot_prod_f32(p_input_vec, S->p_temp_vec_data, num_taps, &k_den);
@@ -294,13 +297,21 @@ static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
         LOGERROR("RLS_ARM: k_den too small (%.2e), using regularization", k_den);
         k_den = 1e-8f;
     }
-    
     /////////////////////////////// 计算增益向量 k = (P * x) / (lambda + x^T * P * x)
     arm_scale_f32(S->p_temp_vec_data, 1.0f / k_den, S->p_mat_k_data, num_taps);
-    
+
     // 5. 更新权重: w = w + k * e
     arm_scale_f32(S->p_mat_k_data, error, S->p_temp_vec_data, num_taps);
-    arm_mat_add_f32(&S->w, &S->temp_vec, &S->w);
+    if(isnan(*S->p_mat_w_data)  && p_mat_w_data_look == 0.0f)
+    {
+        p_mat_w_data_look = 3.2f;
+    }
+    arm_mat_add_f32(&S->w, &S->temp_vec, &S->w);//////////////////////到这里,temp_vec
+    if(isnan(*S->p_mat_w_data)  && p_mat_w_data_look == 0.0f)
+    {
+        p_mat_w_data_look = 3.3f;
+    }
+
     ///////////////////////////////////////////θk = θk-1+Kk*(yk-o*T*Θk-1)
     // 6. 更新协方差矩阵: P = (1/lambda) * (P - k * x^T * P)
     //    其中 temp_vec = P * x (已计算)
@@ -316,7 +327,6 @@ static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
             S->p_temp_mat_data[col * num_taps + row] = val;  // 镜像到下三角
         }
     }
-    
     // 计算 P = P - k * x^T * P
     arm_mat_sub_f32(&S->P, &S->temp_mat, &S->P);
     
@@ -335,7 +345,7 @@ static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
             S->p_mat_p_data[j * num_taps + i] = avg;
         }
     }
-    
+
     // 定期添加正则化防止数值退化
     if (S->update_count > 0 && S->update_count % 1000 == 0)
     {
@@ -353,7 +363,7 @@ static arm_status rls_arm_update_direct(rls_arm_instance_f32 *S,
     // 更新误差方差 (指数移动平均)
     float32_t alpha = 0.1f;  // 平滑因子
     S->error_variance = alpha * error * error + (1.0f - alpha) * S->error_variance;
-    
+
     return ARM_MATH_SUCCESS;
 }
 
@@ -578,6 +588,7 @@ arm_status rls_arm_vector_f32(rls_arm_instance_f32 *S,
  *         - ARM_MATH_ARGUMENT_ERROR：输入参数指针为空
  *         - 其他错误码：由参数校验函数rls_arm_validate_params返回（如实例未初始化等）
  */
+float32_t p_mat_w_data_look;
 arm_status rls_arm_control_f32(rls_arm_instance_f32 *S,
                                const float32_t *p_input,
                                float32_t target_output,
@@ -590,6 +601,7 @@ arm_status rls_arm_control_f32(rls_arm_instance_f32 *S,
         return status; // 若参数无效，直接返回错误状态
     }
 
+
     // 检查输入/输出指针是否为空（空指针会导致访问异常）
     if (p_input == NULL || p_error == NULL)
     {
@@ -601,12 +613,14 @@ arm_status rls_arm_control_f32(rls_arm_instance_f32 *S,
     // （控制应用中，状态缓冲区直接存储当前完整输入，而非历史数据的滑动窗口）
     memcpy(S->p_state, p_input, S->num_taps * sizeof(float32_t));
 
+
     // 调用直接向量更新函数执行RLS迭代：
     // 1. 基于当前输入计算实际输出
     // 2. 计算误差（target_output - 实际输出）并写入p_error
     // 3. 根据误差更新滤波器系数和协方差矩阵
     float32_t output; // 临时变量，存储当前时刻的实际输出（由更新函数计算）
     status = rls_arm_update_direct(S, p_input, target_output, &output, p_error);
+
 
     return status; // 返回更新过程的执行状态
 }

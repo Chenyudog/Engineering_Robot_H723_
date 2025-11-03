@@ -51,8 +51,8 @@ QueueHandle_t xControlQueue = NULL; // 队列句柄
 #define CONTROL_QUEUE_LENGTH 12    // 队列长度，可根据需要调整
 #define CONTROL_QUEUE_ITEM_SIZE sizeof(float)*6 // 每个队列元素占用的字节数
 
-#define KalmanOne_QUEUE_LENGTH 14    // 队列长度，可根据需要调整
-#define KalmanOne_QUEUE_ITEM_SIZE sizeof(float)*7 // 每个队列元素占用的字节数
+#define KalmanOne_QUEUE_LENGTH 12    // 队列长度，可根据需要调整
+#define KalmanOne_QUEUE_ITEM_SIZE sizeof(float)*6 // 每个队列元素占用的字节数
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -75,37 +75,7 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define CPU_FREQUENCY_MHZ    480		// STM32时钟主频
-void delay_us(__IO uint32_t delay)
-{
-    int last, curr, val;
-    int temp;
 
-    while (delay != 0)
-    {
-        temp = delay > 900 ? 900 : delay;
-        last = SysTick->VAL;
-        curr = last - CPU_FREQUENCY_MHZ * temp;
-        if (curr >= 0)
-        {
-            do
-            {
-                val = SysTick->VAL;
-            }
-            while ((val < last) && (val >= curr));
-        }
-        else
-        {
-            curr += CPU_FREQUENCY_MHZ * 1000;
-            do
-            {
-                val = SysTick->VAL;
-            }
-            while ((val <= last) || (val > curr));
-        }
-        delay -= temp;
-    }
-}
 /* USER CODE END 0 */
 
 /**
@@ -124,7 +94,7 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* USER   N        JKJGH    CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
 
@@ -155,10 +125,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
     MX_USB_DEVICE_Init();
     dwt_init();
-
     BMI088_init(&hspi2);  // 陀螺仪已经校准
     // 达妙4310驱动设置
-    power(1);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
     bsp_fdcan_set_baud(&hfdcan1, CAN_CLASS, CAN_BR_1M);
     bsp_fdcan_set_baud(&hfdcan2, CAN_CLASS, CAN_BR_1M);

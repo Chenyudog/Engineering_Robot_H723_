@@ -4,6 +4,9 @@
 #include "main.h"
 #include "task.h"
 #include "drv_dwt.h"
+//
+// Created by 张荣开 on 25-11-2.
+//
 
 
 //IIC初始化
@@ -17,23 +20,24 @@ void IIC_Init(void)
 //产生IIC起始信号
 void IIC_Start(void)
 {
-    SDA_OUT();     //sda线输出
+    SDA_OUT();
     IIC_SDA(1);
     IIC_SCL(1);
     dwt_delay_us(1);
-    IIC_SDA(0);//START:when CLK is high,DATA change form high to low
+    IIC_SDA(0);
     dwt_delay_us(1);
-    IIC_SCL(0);//钳住I2C总线，准备发送或接收数据
+    IIC_SCL(0);
 }
+
 //产生IIC停止信号
 void IIC_Stop(void)
 {
-    SDA_OUT();//sda线输出
+    SDA_OUT();
     IIC_SCL(0);
-    IIC_SDA(0);//STOP:when CLK is high DATA change form low to high
+    IIC_SDA(0);
     dwt_delay_us(1);
     IIC_SCL(1);
-    IIC_SDA(1);//发送I2C总线结束信号
+    IIC_SDA(1);
     dwt_delay_us(1);
 }
 //等待应答信号到来
@@ -42,7 +46,7 @@ void IIC_Stop(void)
 uint8_t IIC_Wait_Ack(void)
 {
     uint8_t ucErrTime=0;
-    SDA_IN();      //SDA设置为输入
+    SDA_IN();
     IIC_SDA(1);dwt_delay_us(1);
     IIC_SCL(1);dwt_delay_us(1);
     while(READ_SDA)
@@ -54,9 +58,10 @@ uint8_t IIC_Wait_Ack(void)
             return 1;
         }
     }
-    IIC_SCL(0);//时钟输出0
+    IIC_SCL(0);
     return 0;
 }
+
 //产生ACK应答
 void IIC_Ack(void)
 {
@@ -68,6 +73,7 @@ void IIC_Ack(void)
     dwt_delay_us(1);
     IIC_SCL(0);
 }
+
 //不产生ACK应答
 void IIC_NAck(void)
 {
@@ -79,6 +85,7 @@ void IIC_NAck(void)
     dwt_delay_us(1);
     IIC_SCL(0);
 }
+
 //IIC发送一个字节
 //返回从机有无应答
 //1，有应答
@@ -99,6 +106,7 @@ void IIC_Send_Byte(uint8_t txd)
         dwt_delay_us(1);
     }
 }
+
 //读1个字节，ack=1时，发送ACK，ack=0，发送nACK
 uint8_t IIC_Read_Byte(unsigned char ack)
 {

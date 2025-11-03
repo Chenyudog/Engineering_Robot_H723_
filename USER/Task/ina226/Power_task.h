@@ -41,6 +41,7 @@ extern float ina226_bus_voltage;    // 总线电压（V）
 extern float ina226_shunt_voltage;  // 分流电压（mV）
 extern float ina226_current;        // 电流（A）
 extern float ina226_power;          // 功率（W）
+extern float power_update_timestamp ;//检测功率是否更新，用于rls算法
 
 // ************************** 函数声明 **************************
 void INA226_Init(void);                           // 初始化INA226
