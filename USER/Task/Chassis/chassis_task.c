@@ -304,12 +304,13 @@ void chassis_cmd_state_machine(void)
 int32_t I_cmd[4];
 static rls_arm_instance_f32 power_rls;
 rls_arm_config_t cfg;
-int32_t rpm[4];
-int32_t rpm_all,rpm2_all,I_cmd_all;
+float omega[4];
+float omega_all,I_cmd_all;
 float power[4],power_all,power_useful[4],power_useful_all;
 
 float rotor_torque[4];  //力矩
-#define K_power 0.10472f//  1/9.55
+#define K_power 0.10472f//  rpm -> rad/s
+#define wheel_ratio    0.052074f  //转换成轮子转速
 #define RPM_SCALE 1e-07f
 #define TORQUE_SCALE 0.1f
 #define Icmd_2_current 0.0012207f   //  20 / 16384
@@ -317,12 +318,12 @@ float rotor_torque[4];  //力矩
 void rls_power_init()
 {
     rls_arm_get_default_config(3, &cfg);
-    cfg.lambda = 0.995f;     //  遗忘因子：适中
+    cfg.lambda = 0.99999f;     //  遗忘因子：适中
     cfg.delta  = 20.0f;      //  初始协方差：略大，快速初始学习
 
     // 稳定性参数
-    cfg.stability_threshold = 1e6f;        //  稳定性阈值
-    cfg.max_updates = 10000;               //  最大更新次数：~3.3分钟
+    cfg.stability_threshold = 1e-5f;        //  稳定性阈值
+    cfg.max_updates = 7500;               //  最大更新次数：~3.3分钟
     cfg.enable_adaptive_lambda = 0;        //  禁用自适应（保持稳定）
     cfg.enable_stability_check = 1;        //  启用稳定性检查
 
@@ -362,8 +363,7 @@ void rls_power_limit(uint8_t update_weights)
     dji_motor_measure_t measure;     // 电机测量数据结构体（包含转速等信息）
 
     // 清零所有累积变量，避免上次计算结果对本次产生干扰
-    rpm_all = 0;                     // 所有电机转速绝对值之和（用于判断运动状态）
-    rpm2_all = 0;                    // 所有电机转速平方和（用于损耗模型）
+    omega_all = 0;                     // 所有电机转速绝对值之和（用于判断运动状态）
     rotor_torque2_all = 0;           // 所有电机转矩平方和（用于损耗模型）
     power_useful_all = 0;            // 所有电机有用功率总和
     power_all = 0;                   // 所有电机总功率（有用功率+损耗）总和
@@ -380,19 +380,18 @@ void rls_power_limit(uint8_t update_weights)
         // 将电流指令转换为电机转矩：
         // Icmd_2_current：电流指令到实际电流的转换系数（可能包含限幅/标定）
         // K_torque：电流到转矩的转换系数（电机参数，N·m/A）
-        rotor_torque[i] = (float)measure.real_current *Icmd_2_current * K_torque;
+        rotor_torque[i] = fabsf((float)measure.real_current )*Icmd_2_current * K_torque;
 
-        // 计算电机的有用功率（机械功率）：
+        // 计算电机的有用功率（机械功率）
         // 转矩 × 转速（需转换单位，K_power包含rpm到rad/s的换算及单位统一）
-        power_useful[i] = rotor_torque[i] * (float)measure.speed_rpm * K_power;
+        power_useful[i] = fabsf(rotor_torque[i]) * fabsf(measure.speed_rpm * wheel_ratio * K_power);
 
-        rpm[i] = measure.speed_rpm;  // 保存当前电机的转速（rpm）
+        omega[i] = measure.speed_rpm * K_power * wheel_ratio;  // 保存当前电机的转速（rpm）
 
         // 累积计算损耗模型所需的变量
-        rpm2_all += rpm[i] * rpm[i];                 // 转速平方和（用于风阻/涡流损耗项）
         rotor_torque2_all += rotor_torque[i] * rotor_torque[i];  // 转矩平方和（用于非线性损耗项）
         power_useful_all += power_useful[i];         // 有用功率总和
-        rpm_all += abs(rpm[i]);  // 转速绝对值总和（判断是否运动：静止时避免RLS拟合错误）
+        omega_all += fabsf(omega[i]);  // 转速绝对值总和（判断是否运动：静止时避免RLS拟合错误）
     }
 
     // 当需要更新权重且系统处于有效运动状态时，执行RLS算法更新损耗模型参数
@@ -404,15 +403,15 @@ void rls_power_limit(uint8_t update_weights)
 
         // 构造RLS算法的输入向量（对应损耗模型的自变量）：
         // 输入向量为 [转速平方项, 转矩平方项, 常数项]，通过缩放使各分量数量级一致
-        input_vector[0] = (float)rpm2_all * RPM_SCALE;       // 转速平方项（缩放后）
-        input_vector[1] = rotor_torque2_all * TORQUE_SCALE;  // 转矩平方项（缩放后）
-        input_vector[2] = 1;                                 // 常数项（偏置项）
+        input_vector[0] = fabsf((float)omega_all);       // 转速平方项（缩放后）
+        input_vector[1] = rotor_torque2_all;  // 转矩平方项（缩放后）
+        input_vector[2] = 1.0f;                                 // 常数项（偏置项）
 
         // 运动状态判断：满足以下条件时认为系统在运动，可执行RLS更新
         // 1. 总转速绝对值>300rpm（整体运动）；2. 任一电机电流指令≥100（电机发力）
         // 目的：避免静止时数据无效导致RLS参数拟合发散
 
-        if (rpm_all > 1000)
+        if (omega_all > 10.0f)
         {
             // 调用RLS算法更新参数：根据输入向量和总损耗功率，优化模型权重
             rls_arm_control_f32(&power_rls, input_vector, wasted_power_all, &rls_error);
@@ -421,8 +420,8 @@ void rls_power_limit(uint8_t update_weights)
     // 从RLS算法中获取最新的权重参数（k1, k2, k3分别对应损耗模型的系数）
     rls_arm_get_weights_f32(&power_rls, power_w);
     // 还原缩放后的参数（与输入向量的缩放对应，确保单位正确）
-    k1 = power_w[0] * RPM_SCALE;    // 转速平方项系数（对应风阻/涡流损耗）
-    k2 = power_w[1] * TORQUE_SCALE; // 转矩平方项系数（对应非线性损耗）
+    k1 = power_w[0] ;    // 转速平方项系数（对应风阻/涡流损耗）
+    k2 = power_w[1] ; // 转矩平方项系数（对应非线性损耗）
     k3 = power_w[2];                // 常数项系数（对应固定损耗）
 
     // 计算每个电机的总功率（有用功率+损耗），并累加总功率
@@ -430,7 +429,7 @@ void rls_power_limit(uint8_t update_weights)
     {
         // 总功率 = 有用功率 + 损耗功率
         // 损耗功率模型：k1*转速² + k2*转矩² + k3/4（k3平均分配到4个电机）
-        power[i] = power_useful[i] + (k1 * (float)(rpm[i] * rpm[i]) +
+        power[i] = power_useful[i] + (k1 * (fabsf(omega[i])) +
                                       k2 * rotor_torque[i] * rotor_torque[i] +
                                       k3 / 4.0f);
         power_all += power[i];  // 累加4个电机的总功率
@@ -494,9 +493,9 @@ void ChassisTask_Entry(void const * argument)
     bsp_can_init();
     can_filter_init();
     chassis_yaw_pid = pid_register(&chassis_yaw_config);   /* 注册 PID 实例 */
-    #ifdef RLS_POWER_LIMIT
-        rls_power_init();
-    #endif
+#ifdef RLS_POWER_LIMIT
+    rls_power_init();
+#endif
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
@@ -520,21 +519,21 @@ void ChassisTask_Entry(void const * argument)
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         mecanum_calc(&cmd_chassis, motor_target_speed_rpm);
-        #ifdef RLS_POWER_LIMIT
-                /* RLS功率限制计算 - 每周期计算，但只在功率数据更新时更新权重 */
-                static float last_power_timestamp = 0.0f;  // 记录上次RLS更新权重时的时间戳
-                uint8_t should_update_weights = 0;
+#ifdef RLS_POWER_LIMIT
+        /* RLS功率限制计算 - 每周期计算，但只在功率数据更新时更新权重 */
+        static float last_power_timestamp = 0.0f;  // 记录上次RLS更新权重时的时间戳
+        uint8_t should_update_weights = 0;
 
-                // 通过比较时间戳判断功率数据是否更新
-                if (power_update_timestamp != last_power_timestamp)
-                {
-                    should_update_weights = 1;  // 功率数据已更新，需要更新RLS权重
-                    last_power_timestamp = power_update_timestamp;
-                }
+        // 通过比较时间戳判断功率数据是否更新
+        if (power_update_timestamp != last_power_timestamp)
+        {
+            should_update_weights = 1;  // 功率数据已更新，需要更新RLS权重
+            last_power_timestamp = power_update_timestamp;
+        }
 
-                // 每个周期都执行，但只在功率数据更新时才更新权重系数
-                rls_power_limit(should_update_weights);
-        #endif
+        // 每个周期都执行，但只在功率数据更新时才更新权重系数
+        rls_power_limit(should_update_weights);
+#endif
         dji_motor_control();
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
