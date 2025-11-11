@@ -38,6 +38,7 @@ typedef struct
     uint16_t ecd;             // 0-8191
     uint16_t last_ecd;        // 上一次读取的编码器值
     int16_t  speed_rpm;       // 电机转子的转速值，单位为:转/分，不是输出的轮子转速，除以19的减速比即轮子转速
+    int16_t  speed_rad;       // 电机转子的转速值，单位为:转/分，不是输出的轮子转速，除以19的减速比即轮子转速
     int16_t real_current;     // 实际转矩电流
     uint8_t temperature;      // Celsius
 } dji_motor_measure_t;

@@ -17,7 +17,6 @@
 static uint8_t idx = 0; // register idx,是该文件的全局电机索引,在注册时使用
 /* DJI电机的实例,此处仅保存指针,内存的分配将通过电机实例初始化时通过malloc()进行 */
 static dji_motor_object_t *dji_motor_obj[DJI_MOTOR_CNT] = {NULL};
-
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
 extern FDCAN_HandleTypeDef hfdcan3;
@@ -61,6 +60,7 @@ static void decode_dji_motor(dji_motor_object_t *motor, uint8_t *data)
     measure->real_current = (1.0f - CURRENT_SMOOTH_COEF) * measure->real_current +
                             CURRENT_SMOOTH_COEF * (float)((int16_t)(rxbuff[4] << 8 | rxbuff[5]));
     measure->temperature = rxbuff[6];
+    measure->speed_rad = measure->speed_rpm * 0.10472f;  //转子转速rad /s
 
     // 多圈角度计算,前提是假设两次采样间电机转过的角度小于180°,自己画个图就清楚计算过程了
     if (measure->ecd - measure->last_ecd > 4096)
@@ -99,6 +99,9 @@ void dji_motor_enable(dji_motor_object_t *motor)
 {
     motor->stop_flag = MOTOR_ENALBED;
 }
+extern uint8_t power_out_state;
+extern int16_t motor_target_current_look[4];
+int16_t look_send[4];
 
 // 运算所有电机实例的控制器,发送控制报文
 void dji_motor_control()
@@ -117,8 +120,12 @@ void dji_motor_control()
         id = motor->rx_id - 0x201;     // 对应多电机模式下的ID转换规则
         measure = motor->measure;
         motor_current_set = motor->control(measure); // 调用对接的电机控制器计算
-        //LIMIT_MIN_MAX(set,  -2000,  2000);
-
+        if(power_out_state == 1)
+        {
+            motor_current_set = motor_target_current_look[i];
+        }
+        look_send[i] = motor_current_set;
+        LIMIT_MIN_MAX(motor_current_set,  -5000,  5000);
         // 合并报文
         if (motor->stop_flag == MOTOR_STOP)
         {

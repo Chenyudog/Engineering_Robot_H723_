@@ -105,11 +105,11 @@ extern FDCAN_HandleTypeDef hfdcan3;
 /* 电机速度环（实际是C620的电流环）（电流值范围：-16380~0~16380）（-20A~0A~20A） */
 // 传入电机转速测量值（转子的，不含减速机），通过预期转子转速，计算对应的预期电流值。
 // 相当于期望编码器电机速度与编码器测量得到的电机速度，用PID计算所需PWM值。
-#define CHASSIS_KP_V_MOTOR              3.5f
-#define CHASSIS_KI_V_MOTOR              0.01
-#define CHASSIS_KD_V_MOTOR              0.001
-#define CHASSIS_INTEGRAL_V_MOTOR        1500
-#define CHASSIS_MAX_V_MOTOR             12000    // 16000
+#define CHASSIS_KP_V_MOTOR              70.0f
+#define CHASSIS_KI_V_MOTOR              1.5f
+#define CHASSIS_KD_V_MOTOR              0.05f
+#define CHASSIS_INTEGRAL_V_MOTOR        700
+#define CHASSIS_MAX_V_MOTOR             10000    // 16000
 
 /* 电机角度环 */
 
