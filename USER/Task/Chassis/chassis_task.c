@@ -38,7 +38,7 @@
 #define wheel_ratio    0.05207463310219f  //转子转速转换成轮子转速   1/减速比 ≈ 187/3591 =0.052074
 #define K_current 0.001220703125f   //  20 / 16384
 #define K_torque  0.3f      //转矩常数 0.3N*M/A
-#define CURRENT_TO_TORQUE_RATIO K_current * K_torque * wheel_ratio// 转子电流到转子力矩的转换系数，单位：Nm/A   约等于1.9e-5
+#define CURRENT_TO_TORQUE_RATIO 0.0000190702513f//K_current * K_torque * wheel_ratio// 转子电流到转子力矩的转换系数，单位：Nm/A   约等于1.9e-5
 
 
 /*================================= 功率控制相关 ================================= */
@@ -49,7 +49,8 @@ static float Power_Ctrl_Param[5] = {1e-05f, 20.0f, 2.8f, 0.0001f, 2000};//RLS拟
 
 float I_cmd[4];//PID计算出来的要发送的电流
 uint8_t powerOverloadFlag = 0;  //超功率标志位
-uint8_t power_max = 50;//便于调试
+float power_max = 20.0f;//便于调试
+float Decrease;  // 功率衰减系数
 
 /*================================= 功率控制相关 ================================= */
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
@@ -336,16 +337,16 @@ void rls_power_limit(uint8_t update_weights) {
 
         motor = chassis_motor[i];               // 获取第i个电机的对象
         measure = motor->measure;               // 获取该电机的实时测量数据
-        I_cmd[i] = (float)motor->control(measure) * CURRENT_TO_TORQUE_RATIO;     //转子目标输出电流转速
+        I_cmd[i] = (float)motor->control(measure) ;     //转子目标输出电流
         PowerCtrl_Info.Target.Omiga[i] = measure.speed_rad;           //转子实际转速,单位rad/s
-        PowerCtrl_Info.Target.Torque[i] = (float)measure.real_current * CURRENT_TO_TORQUE_RATIO;//转子实际转矩 单位N*M/A
-
+        PowerCtrl_Info.Target.Torque[i] = measure.real_current * CURRENT_TO_TORQUE_RATIO;//转子实际转矩 单位N*M/A
+        PowerCtrl_Info.Err[i] = fabsf((float)motor_target_speed_rad[i] - (float)measure.speed_rad);
         PowerCtrl_Info.Target.power_useful[i] = fabsf(PowerCtrl_Info.Target.Omiga[i] * PowerCtrl_Info.Target.Torque[i]);
         PowerCtrl_Info.Target.Omiga_2[i] = powf(PowerCtrl_Info.Target.Omiga[i], 2.f);
         PowerCtrl_Info.Target.Torque_2[i] = powf(PowerCtrl_Info.Target.Torque[i], 2.f);
         //功率模型:P = k1*w² + k2*τ² + k3 + τ*w
-        PowerCtrl_Info.Target.Power_In[i] = (PowerCtrl_Info.Param.K1 * PowerCtrl_Info.Target.Omiga_2[i] +
-                                              PowerCtrl_Info.Param.K2 * PowerCtrl_Info.Target.Torque_2[i] );
+        PowerCtrl_Info.Target.RLS_Input[i] = (PowerCtrl_Info.Param.K1 * PowerCtrl_Info.Target.Omiga_2[i] +
+                                              PowerCtrl_Info.Param.K2 * PowerCtrl_Info.Target.Torque_2[i]);
 
 //========================================获取RLS拟合需要的数据====================================//
     }
@@ -353,28 +354,34 @@ void rls_power_limit(uint8_t update_weights) {
     /* ==================== 总和计算与RLS更新 ==================== */
 
     // 计算四个电机的参数总和
+    // 计算总误差绝对值（控制精度指标）
+    PowerCtrl_Info.Sum.Err_Sum = PowerCtrl_Info.Err[0] + PowerCtrl_Info.Err[1] +
+                                 PowerCtrl_Info.Err[2] + PowerCtrl_Info.Err[3];
+
     //转子力矩平方总和
     PowerCtrl_Info.Sum.Torque2_Sum = PowerCtrl_Info.Target.Torque_2[0] + PowerCtrl_Info.Target.Torque_2[1] +
-                                      PowerCtrl_Info.Target.Torque_2[2] + PowerCtrl_Info.Target.Torque_2[3];
+                                     PowerCtrl_Info.Target.Torque_2[2] + PowerCtrl_Info.Target.Torque_2[3];
     //转子角速度平方总和
     PowerCtrl_Info.Sum.Omiga2_Sum = PowerCtrl_Info.Target.Omiga_2[0] + PowerCtrl_Info.Target.Omiga_2[1] +
-                                     PowerCtrl_Info.Target.Omiga_2[2] + PowerCtrl_Info.Target.Omiga_2[3];
-    
-    // 总功率预测 = 各电机功率和 + 固定损耗K3
-    PowerCtrl_Info.Sum.Power_Sum = PowerCtrl_Info.Target.Power_In[0] + PowerCtrl_Info.Target.Power_In[1] +
-                                    PowerCtrl_Info.Target.Power_In[2] + PowerCtrl_Info.Target.Power_In[3] + PowerCtrl_Info.Param.K3;
-    //安全范围内期望输出总功率
-    PowerCtrl_Info.Power_Allin = PowerCtrl_Info.Sum.Power_Sum;
+                                    PowerCtrl_Info.Target.Omiga_2[2] + PowerCtrl_Info.Target.Omiga_2[3];
 
-    VAL_LIMIT(PowerCtrl_Info.Power_Allin, -PowerCtrl_Info.Power_Max, PowerCtrl_Info.Power_Max);//限制在最大功率下
+    PowerCtrl_Info.Sum.power_useful_Sum = PowerCtrl_Info.Target.power_useful[0] + PowerCtrl_Info.Target.power_useful[1] +
+                                          PowerCtrl_Info.Target.power_useful[2] +PowerCtrl_Info.Target.power_useful[3];
+    PowerCtrl_Info.Sum.input_Sum = PowerCtrl_Info.Target.RLS_Input[0] + PowerCtrl_Info.Target.RLS_Input[1] +
+                                   PowerCtrl_Info.Target.RLS_Input[2] + PowerCtrl_Info.Target.RLS_Input[3];
+    // 总功率预测 = 各电机功率和 + 固定损耗K3
+    //安全范围内期望输出总功率
+    PowerCtrl_Info.Power_Allin = PowerCtrl_Info.Sum.input_Sum;
+
+    // VAL_LIMIT(PowerCtrl_Info.Power_Allin, -(PowerCtrl_Info.Power_Max - PowerCtrl_Info.Sum.power_useful_Sum - PowerCtrl_Info.Param.K3), PowerCtrl_Info.Power_Max - PowerCtrl_Info.Sum.power_useful_Sum - PowerCtrl_Info.Param.K3);//限制在最大功率下
 
     RLS_Power_Info.Data.X[0] = PowerCtrl_Info.Sum.Omiga2_Sum;
     RLS_Power_Info.Data.X[1] = PowerCtrl_Info.Sum.Torque2_Sum;
 
     // RLS期望输出：模型预测功率
-    RLS_Power_Info.Data.U[0] = PowerCtrl_Info.Power_Allin;
+    RLS_Power_Info.Data.U[0] = PowerCtrl_Info.Sum.input_Sum ;
     // RLS实际输出：功率计测量的底盘实际功率 + 偏移量3W
-    RLS_Power_Info.Data.Y[0] = ina226_power ;//+3作用有争议
+    RLS_Power_Info.Data.Y[0] = ina226_power - PowerCtrl_Info.Sum.power_useful_Sum - PowerCtrl_Info.Param.K3;
 
     if (PowerCtrl_Info.Sum.Omiga2_Sum > 50.0f && update_weights)//防止静止时也拟合,导致拟合发散
     {
@@ -386,23 +393,18 @@ void rls_power_limit(uint8_t update_weights) {
         PowerCtrl_Info.Param.K2 = RLS_Power_Info.Data.W[1];
 
         // 使用新参数重新计算总功率预测
-        PowerCtrl_Info.Sum.Power_Sum = PowerCtrl_Info.Target.Power_In[0] + PowerCtrl_Info.Target.Power_In[1] +
-                                        PowerCtrl_Info.Target.Power_In[2] + PowerCtrl_Info.Target.Power_In[3] + PowerCtrl_Info.Param.K3;
+        PowerCtrl_Info.Sum.Power_Sum = PowerCtrl_Info.Target.RLS_Input[0] + PowerCtrl_Info.Target.RLS_Input[1] +
+                                       PowerCtrl_Info.Target.RLS_Input[2] + PowerCtrl_Info.Target.RLS_Input[3] + PowerCtrl_Info.Param.K3 + PowerCtrl_Info.Sum.power_useful_Sum;
     }
 
 /*-------------------------更新RLS拟合部分--------------------------*/
 
 
 /*-----------------------------功率分配部分-----------------------*/
-    for (int i = 0; i < 4; i++)// 计算每个电机的误差
+    powerOverloadFlag = 0;  //清除超功率标志位
+    if (PowerCtrl_Info.Sum.Power_Sum >= PowerCtrl_Info.Power_Max)
     {
-        PowerCtrl_Info.Err[i] = (float)abs(motor_target_speed_rad[i] - measure.speed_rad);
-    }
-
-    // 计算总误差绝对值（控制精度指标）
-    PowerCtrl_Info.Sum.Err_Sum = PowerCtrl_Info.Err[0] + PowerCtrl_Info.Err[1] +
-                                  PowerCtrl_Info.Err[2] + PowerCtrl_Info.Err[3];
-
+        powerOverloadFlag = 1;  //开启超功率标志位
     // 计算功率分配因子K（基于误差大小的自适应权重）
     if (PowerCtrl_Info.Sum.Err_Sum > PowerCtrl_Info.Param.Err_Upper)
         PowerCtrl_Info.K = 1;  // 误差大，完全按误差分配
@@ -410,28 +412,25 @@ void rls_power_limit(uint8_t update_weights) {
         PowerCtrl_Info.K = 0;  // 误差小，完全按功率分配
     else
         // 误差中等,线性插值分配
-        PowerCtrl_Info.K = (PowerCtrl_Info.Sum.Err_Sum - PowerCtrl_Info.Param.Err_Lower) /
-                            (PowerCtrl_Info.Param.Err_Upper - PowerCtrl_Info.Param.Err_Lower);
+        PowerCtrl_Info.K =
+                fmaxf(0.0f,
+                      fminf(1.0f,
+                            (PowerCtrl_Info.Sum.Err_Sum - PowerCtrl_Info.Param.Err_Lower) /
+                            (PowerCtrl_Info.Param.Err_Upper - PowerCtrl_Info.Param.Err_Lower)
+                      )
+                );
 
     // 计算每个电机的功率分配权重（港科大论文的功率分配方法）
     for (int i = 0; i < 4; i++)
     {
-        // 权重 = K×(误差权重) + (1-K)×(功率权重)
-        PowerCtrl_Info.Menbership[i] = (PowerCtrl_Info.K * (fabs(PowerCtrl_Info.Err[i]) / PowerCtrl_Info.Sum.Err_Sum) +
-                (1 - PowerCtrl_Info.K) * (fabs(PowerCtrl_Info.Target.Power_In[i]) / PowerCtrl_Info.Sum.Power_Sum));
-
-        // 计算每个电机的功率限制值
-        PowerCtrl_Info.Power_Limit[i] = PowerCtrl_Info.Menbership[i] * PowerCtrl_Info.Power_Allin;
+        // 1. 计算每个电机的权重（0-1之间）
+        float error_weight = PowerCtrl_Info.Power_Max * (PowerCtrl_Info.Err[i] / PowerCtrl_Info.Sum.Err_Sum);
+        float power_weight = PowerCtrl_Info.Power_Max * ((PowerCtrl_Info.Target.RLS_Input[i] +
+                              PowerCtrl_Info.Target.power_useful[i] +
+                              PowerCtrl_Info.Param.K3 * 0.25f) / PowerCtrl_Info.Sum.Power_Sum);
+        PowerCtrl_Info.Power_Limit[i] = PowerCtrl_Info.K * error_weight + (1.0f - PowerCtrl_Info.K) * power_weight;
     }
 
-
-    /* ==================== 功率限制处理 ==================== */
-
-    // 如果总功率超过限制，执行功率限制算法
-    if (PowerCtrl_Info.Sum.Power_Sum >= PowerCtrl_Info.Power_Max)
-    {
-        float Decrease;  // 功率衰减系数
-        powerOverloadFlag = 0;  //开启超功率标志位
         // 计算功率衰减系数：功率限制/实际功率，限制在[0,1]范围
         Decrease = PowerCtrl_Info.Power_Max / PowerCtrl_Info.Sum.Power_Sum;
         VAL_LIMIT(Decrease, 0, 1);
@@ -444,9 +443,9 @@ void rls_power_limit(uint8_t update_weights) {
                标准形式：A*τ² + B*τ + C = 0
             */
             PowerCtrl_Info.A = PowerCtrl_Info.Param.K2;  // 二次项系数
-            PowerCtrl_Info.B = PowerCtrl_Info.Target.Omiga[i];  // 一次项系数（角速度）
-            PowerCtrl_Info.C = PowerCtrl_Info.Target.Omiga_2[i] * PowerCtrl_Info.Param.K1 +
-                                PowerCtrl_Info.Param.K3 * 0.25 - PowerCtrl_Info.Power_Limit[i];  // 常数项
+            PowerCtrl_Info.B = (float)motor_target_speed_rad[i];  // 一次项系数（角速度）
+            PowerCtrl_Info.C = (float)motor_target_speed_rad[i] * (float)motor_target_speed_rad[i] * PowerCtrl_Info.Param.K1 +
+                               PowerCtrl_Info.Param.K3 * 0.25 - PowerCtrl_Info.Power_Limit[i];  // 常数项
 
             // 计算判别式Δ = B² - 4AC
             PowerCtrl_Info.Delta = powf(PowerCtrl_Info.B, 2.f) - 4 * PowerCtrl_Info.A * PowerCtrl_Info.C;
@@ -460,18 +459,18 @@ void rls_power_limit(uint8_t update_weights) {
             {
                 PowerCtrl_Info.Sqrt = sqrtf(PowerCtrl_Info.Delta);
 
-                if (I_cmd[i] >= 0)  // 正转情况
+                if (I_cmd[i] >= 0.0f)  // 正转情况
                 {
                     // 取正根解
                     PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B + PowerCtrl_Info.Sqrt) / (2 * PowerCtrl_Info.A);
                     // 转矩转电流，并应用功率衰减
-                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO * Decrease);
                 }
                 else  // 反转情况
                 {
                     // 取负根解
                     PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B - PowerCtrl_Info.Sqrt) / (2 * PowerCtrl_Info.A);
-                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                    PowerCtrl_Info.Output[i] = ((PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease);
                 }
             }
             else  // 无实数解，使用近似解
@@ -479,15 +478,16 @@ void rls_power_limit(uint8_t update_weights) {
                 if (I_cmd[i] >= 0)
                 {
                     // 使用顶点近似：τ = -B/2A
-                    PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B) / (2 * PowerCtrl_Info.A);
-                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                    PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B) / (2.0f * PowerCtrl_Info.A);
+                    PowerCtrl_Info.Output[i] = ((PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease);
                 }
                 else
                 {
-                    PowerCtrl_Info.Torque[i] = (PowerCtrl_Info.B) / (2 * PowerCtrl_Info.A);
-                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                    PowerCtrl_Info.Torque[i] = (PowerCtrl_Info.B) / (2.0f * PowerCtrl_Info.A);
+                    PowerCtrl_Info.Output[i] = ((PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease);
                 }
             }
+            VAL_LIMIT(PowerCtrl_Info.Output[i], -3000, 3000);//限幅防止跑飞
         }
     }
 

@@ -118,15 +118,14 @@ void dji_motor_control()
         motor = dji_motor_obj[i];
         id = motor->rx_id - 0x201;     // 对应多电机模式下的ID转换规则
         measure = motor->measure;
-        if( powerOverloadFlag == 1)//超过功率，发送计算出来的转子电流目标值   //由于调用特殊性,目前先这样改,防止多次无用调用pid，i的累加导致误差
+        if(powerOverloadFlag == 1)//超过功率，发送计算出来的转子电流目标值   //由于调用特殊性,目前先这样改,防止多次无用调用pid，i的累加导致误差
         {
-            motor_current_set = PowerCtrl_Info.Output[i];
+            motor_current_set = (int16_t)PowerCtrl_Info.Output[i];
         }
         else
         {
             motor_current_set = motor->control(measure); // 调用对接的电机控制器计算
         }
-        powerOverloadFlag = 0;  //清除超功率标志位
         LIMIT_MIN_MAX(motor_current_set,  -2700,  2700);//限幅
         // 合并报文
         if (motor->stop_flag == MOTOR_STOP)

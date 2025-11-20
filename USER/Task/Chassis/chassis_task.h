@@ -58,17 +58,20 @@ typedef struct
         float Power_Sum;
         float Err_Sum;
         float power_useful_Sum;
-    } Sum; // 一些数据求和
+        float input_Sum;
+    }
+            Sum; // 一些数据求和
     struct
     {
-        float Power_In[4];
+        float RLS_Input[4];
         float Torque[4];
         float Omiga[4];
         float Torque_2[4];
         float Omiga_2[4];
         float power_useful[4];
-    } Target; // 模型输入的参数
-    int16_t Output[4];
+    }
+            Target; // 模型输入的参数
+    float Output[4];
     PowerCtrl_Parameter_Typedef Param;
 } PowerCtrl_Typedef;
 
