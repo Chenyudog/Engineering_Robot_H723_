@@ -20,7 +20,7 @@ void IIC_Init(void)
 //产生IIC起始信号
 void IIC_Start(void)
 {
-    SDA_OUT();
+    SDA_OUT();//SDA设置为输出模式
     IIC_SDA(1);
     IIC_SCL(1);
     dwt_delay_us(1);
@@ -32,11 +32,12 @@ void IIC_Start(void)
 //产生IIC停止信号
 void IIC_Stop(void)
 {
-    SDA_OUT();
+    SDA_OUT();//SDA设置为输出模式
     IIC_SCL(0);
     IIC_SDA(0);
     dwt_delay_us(1);
     IIC_SCL(1);
+    dwt_delay_us(1);
     IIC_SDA(1);
     dwt_delay_us(1);
 }

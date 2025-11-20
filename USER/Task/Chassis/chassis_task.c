@@ -32,12 +32,26 @@
 #include "bsp_log.h"
 #include "Power_task.h"
 
-#define RLS_POWER_LIMIT
-#define K_power 0.10472f//  rpm -> rad/s
-#define wheel_ratio    0.052074f  //转子转速转换成轮子转速   1/减速比 ≈ 1/19 =0.052074
-#define Icmd_2_current 0.0012207f   //  20 / 16384
-#define K_torque  0.3f        //转矩常数
+#define RLS_POWER_LIMIT//开启RLS拟合功率限制宏定义
 
+#define K_power 0.10472f//  rpm -> rad/s
+#define wheel_ratio    0.05207463310219f  //转子转速转换成轮子转速   1/减速比 ≈ 187/3591 =0.052074
+#define K_current 0.001220703125f   //  20 / 16384
+#define K_torque  0.3f      //转矩常数 0.3N*M/A
+#define CURRENT_TO_TORQUE_RATIO K_current * K_torque * wheel_ratio// 转子电流到转子力矩的转换系数，单位：Nm/A   约等于1.9e-5
+
+
+/*================================= 功率控制相关 ================================= */
+
+PowerCtrl_Typedef PowerCtrl_Info;
+RLS_Info_TypeDef RLS_Power_Info;  // RLS滤波器实例，用于功率模型参数辨识
+static float Power_Ctrl_Param[5] = {1e-05f, 20.0f, 2.8f, 0.0001f, 2000};//RLS拟合初始化参数
+
+float I_cmd[4];//PID计算出来的要发送的电流
+uint8_t powerOverloadFlag = 0;  //超功率标志位
+uint8_t power_max = 50;//便于调试
+
+/*================================= 功率控制相关 ================================= */
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static struct ins_msg ins_data;
@@ -70,7 +84,6 @@ static struct chassis_controller_t
 static dji_motor_object_t *chassis_motor[4];
 
 static int16_t motor_target_speed_rad[4];
-int16_t motor_target_current_look[4];
 
 static void chassis_motor_init();
 static void mecanum_calc(struct cmd_chassis_msg *cmd, int16_t* out_speed);
@@ -85,7 +98,7 @@ static int16_t motor_control_0(dji_motor_measure_t measure)
     static int16_t chassis_power_limit=0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 5000;
+        motor_max_current = 3000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[0].speed_pid, measure.speed_rad, motor_target_speed_rad[0]);
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -99,7 +112,7 @@ static int16_t motor_control_1(dji_motor_measure_t measure)
     static int16_t chassis_power_limit = 0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 5000;
+        motor_max_current = 3000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[1].speed_pid, measure.speed_rad , motor_target_speed_rad[1] );
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -113,7 +126,7 @@ static int16_t motor_control_2(dji_motor_measure_t measure)
     static int16_t chassis_power_limit = 0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 5000;
+        motor_max_current = 3000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[2].speed_pid, measure.speed_rad, motor_target_speed_rad[2]);
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -127,7 +140,7 @@ static int16_t motor_control_3(dji_motor_measure_t measure)
     static int16_t chassis_power_limit = 0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 5000;
+        motor_max_current = 3000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[3].speed_pid, measure.speed_rad , motor_target_speed_rad[3]);
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -304,165 +317,208 @@ void chassis_cmd_state_machine(void)
     }
 }
 
-static bool floatEqual(float a, float b) { return fabsf(a - b) < 1e-5f; }  //近似a大返回0，b大返回1
 #ifdef RLS_POWER_LIMIT
-
-RLS_Info_TypeDef rls_filter;
-int16_t I_cmd[4];//PID计算出来的要发送的电流
-float omega[4];//转子转速 单位：rad/s
-float omega_cmd[4];
-float omega2_all;//转子转速总和 单位：rad/s
-float omega_cmd_all;
-float power[4],power_all,power_useful[4],power_useful_all;//单个电机功率，四个电机功率总和，单个电机有用功，四个电机有用功总和
-float rotor_torque[4];  //力矩
-//RLS拟合和底盘限制变量
-float rotor_torque2_all;  //转矩平方总和
-float rotor_torque2_all_cmd;  //转矩平方总和
-float wasted_power_all;   //无用功总和
-float32_t input_vector[2]; //rls拟合输入量
-float rls_error;   //用于RLS拟合
-float power_w[2];  //拟合输出量
-float k1,k2,k3 = 2.8f;    //拟合量
-float power_cmd[4];  //单个电机分配得功率
-float power_max = 25;  //最大功率//测试用
-float torque_cmd[4];  //目标力矩
-uint8_t power_out_state = 0;  //超功率标志位
-float32_t sqrt_input = 0.0f ;  //detal
-float32_t rotor_torque_cmd[4];
-float measure_error[4] ;   //每个电机的error值
-float sum_error = 0.0f;
-float powerWeight_Error = 0.0f;
-float powerWeight_Prop = 0.0f;
-float error_powerDistribution_set = 20.0f;
-float prop_powerDistribution_set = 30.0f;
-float Power_In[4];
-/**
- * @brief RLS功率限制计算函数
- * @param update_weights 是否更新RLS权重系数 (1=更新, 0=不更新)
- * @note 每个周期都需要计算功率限制，但只在裁判系统功率数据更新时才更新权重
- */
 /**
  * @brief 基于递推最小二乘(RLS)的功率限制函数
  * @param update_weights 是否更新RLS算法的权重参数（1表示更新，0表示不更新）
- * @note 功能：通过RLS算法实时估计电机功率损耗模型，当总总功率超过限制时进行功率分配，防止超功率
+ * @note 功能：通过RLS算法实时估计电机功率损耗模型，当总功率超过限制时进行功率分配，防止超功率
  */
 void rls_power_limit(uint8_t update_weights) {
     dji_motor_object_t *motor;       // 电机对象指针,用于获取电机信息
     dji_motor_measure_t measure;     // 电机测量数据结构体（包含转速等信息）
-
-    omega2_all = 0;                     // 所有电机转速绝对值之和（用于判断运动状态）
-    omega_cmd_all = 0;                  // 所有电机目标转速绝对值之和（用于判断运动状态）
-    rotor_torque2_all = 0;             // 所有电机转矩平方和（用于损耗模型）
-    rotor_torque2_all_cmd = 0;          // 所有电机目标转矩平方和（用于损耗模型）
-    power_useful_all = 0;              // 所有电机有用功率总和
-    power_all = 0;                     // 所有电机总功率（有用功率+损耗）总和
-    power_out_state = 0;               //超功率标志位
-    sum_error = 0.0f;                  //误差总和,用来分配功率
+    PowerCtrl_Info.Power_Max = power_max;//便于调试
+    //PowerCtrl_Info.Power_Max = referee_fdb.robot_status.chassis_power_limit;
 /*-------------------------更新RLS拟合部分--------------------------*/
     // 遍历4个底盘电机，计算单电机参数并累积总和
-    for (int i = 0; i < 4; i++) {
-        motor = chassis_motor[i];    // 获取第i个电机的对象
-        measure = motor->measure;    // 获取该电机的实时测量数据
-        I_cmd[i] = motor->control(measure);// 计算电机的电流指令（通过pid获取本次计算出来的目标电流值）
+    for (int i = 0; i < 4; i++)
+    {
+//========================================获取RLS拟合需要的数据====================================//
 
-        omega[i] = measure.speed_rad;
-        rotor_torque[i] = (float) measure.real_current * Icmd_2_current * K_torque * wheel_ratio;//转子实际转矩
-        rotor_torque_cmd[i] = I_cmd[i] * Icmd_2_current * K_torque * wheel_ratio;               //计算出来本次电流值对应的转矩
-        rotor_torque2_all += rotor_torque[i] * rotor_torque[i]; // 实际转矩平方和
-        rotor_torque2_all_cmd += rotor_torque_cmd[i] * rotor_torque_cmd[i];
-        power_useful[i] = rotor_torque[i] * omega[i];           //每个电机的有用功率
-        power_useful_all += power_useful[i];                    //有用功率总和
-        omega2_all += omega[i] * omega[i];                           // 转速绝对值总和（判断是否运动:静止时避免RLS拟合错误）
-        omega_cmd[i] = motor_target_speed_rad[i];
-        omega_cmd_all += fabsf(omega_cmd[i]);
-        measure_error[i] = (float) abs(motor_target_speed_rad[i] - measure.speed_rad);  //单个电机误差值
-        sum_error += measure_error[i];  //误差值总和，用于功率分配
-        Power_In[i] = (k1 * omega[i] * omega[i] + k2 * rotor_torque[i] * rotor_torque[i]);
+        motor = chassis_motor[i];               // 获取第i个电机的对象
+        measure = motor->measure;               // 获取该电机的实时测量数据
+        I_cmd[i] = (float)motor->control(measure) * CURRENT_TO_TORQUE_RATIO;     //转子目标输出电流转速
+        PowerCtrl_Info.Target.Omiga[i] = measure.speed_rad;           //转子实际转速,单位rad/s
+        PowerCtrl_Info.Target.Torque[i] = (float)measure.real_current * CURRENT_TO_TORQUE_RATIO;//转子实际转矩 单位N*M/A
+
+        PowerCtrl_Info.Target.power_useful[i] = fabsf(PowerCtrl_Info.Target.Omiga[i] * PowerCtrl_Info.Target.Torque[i]);
+        PowerCtrl_Info.Target.Omiga_2[i] = powf(PowerCtrl_Info.Target.Omiga[i], 2.f);
+        PowerCtrl_Info.Target.Torque_2[i] = powf(PowerCtrl_Info.Target.Torque[i], 2.f);
+        //功率模型:P = k1*w² + k2*τ² + k3 + τ*w
+        PowerCtrl_Info.Target.Power_In[i] = (PowerCtrl_Info.Param.K1 * PowerCtrl_Info.Target.Omiga_2[i] +
+                                              PowerCtrl_Info.Param.K2 * PowerCtrl_Info.Target.Torque_2[i] );
+
+//========================================获取RLS拟合需要的数据====================================//
     }
 
-    rls_filter.Data.X[0] = omega2_all;
-    rls_filter.Data.X[1] = rotor_torque2_all;
-    rls_filter.Data.U[0] = Power_In[0] + Power_In[1] + Power_In[2] + Power_In[3];
-    rls_filter.Data.Y[0] = ina226_power - k3 - power_useful_all + 5;    // 总功率P
+    /* ==================== 总和计算与RLS更新 ==================== */
 
-    if (omega2_all > 50.0f && update_weights) {
-        RLS_Update(&rls_filter);
+    // 计算四个电机的参数总和
+    //转子力矩平方总和
+    PowerCtrl_Info.Sum.Torque2_Sum = PowerCtrl_Info.Target.Torque_2[0] + PowerCtrl_Info.Target.Torque_2[1] +
+                                      PowerCtrl_Info.Target.Torque_2[2] + PowerCtrl_Info.Target.Torque_2[3];
+    //转子角速度平方总和
+    PowerCtrl_Info.Sum.Omiga2_Sum = PowerCtrl_Info.Target.Omiga_2[0] + PowerCtrl_Info.Target.Omiga_2[1] +
+                                     PowerCtrl_Info.Target.Omiga_2[2] + PowerCtrl_Info.Target.Omiga_2[3];
+    
+    // 总功率预测 = 各电机功率和 + 固定损耗K3
+    PowerCtrl_Info.Sum.Power_Sum = PowerCtrl_Info.Target.Power_In[0] + PowerCtrl_Info.Target.Power_In[1] +
+                                    PowerCtrl_Info.Target.Power_In[2] + PowerCtrl_Info.Target.Power_In[3] + PowerCtrl_Info.Param.K3;
+    //安全范围内期望输出总功率
+    PowerCtrl_Info.Power_Allin = PowerCtrl_Info.Sum.Power_Sum;
 
-        k1 = rls_filter.Data.W[0];  // 学习到的k₁
-        k2 = rls_filter.Data.W[1];  // 学习到的k₂
+    VAL_LIMIT(PowerCtrl_Info.Power_Allin, -PowerCtrl_Info.Power_Max, PowerCtrl_Info.Power_Max);//限制在最大功率下
 
-        power_all = Power_In[0] + Power_In[1] + Power_In[2] + Power_In[3] + k3 + power_useful_all;
+    RLS_Power_Info.Data.X[0] = PowerCtrl_Info.Sum.Omiga2_Sum;
+    RLS_Power_Info.Data.X[1] = PowerCtrl_Info.Sum.Torque2_Sum;
+
+    // RLS期望输出：模型预测功率
+    RLS_Power_Info.Data.U[0] = PowerCtrl_Info.Power_Allin;
+    // RLS实际输出：功率计测量的底盘实际功率 + 偏移量3W
+    RLS_Power_Info.Data.Y[0] = ina226_power ;//+3作用有争议
+
+    if (PowerCtrl_Info.Sum.Omiga2_Sum > 50.0f && update_weights)//防止静止时也拟合,导致拟合发散
+    {
+        // 更新RLS滤波器权重参数
+        RLS_Update(&RLS_Power_Info);
+
+        // 获取更新后的功率模型参数
+        PowerCtrl_Info.Param.K1 = RLS_Power_Info.Data.W[0];
+        PowerCtrl_Info.Param.K2 = RLS_Power_Info.Data.W[1];
+
+        // 使用新参数重新计算总功率预测
+        PowerCtrl_Info.Sum.Power_Sum = PowerCtrl_Info.Target.Power_In[0] + PowerCtrl_Info.Target.Power_In[1] +
+                                        PowerCtrl_Info.Target.Power_In[2] + PowerCtrl_Info.Target.Power_In[3] + PowerCtrl_Info.Param.K3;
     }
 
 /*-------------------------更新RLS拟合部分--------------------------*/
 
 
 /*-----------------------------功率分配部分-----------------------*/
-    for (int i = 0; i < 4; i++)// 计算每个电机的总功率（有用功率+损耗），并累加总功率
+    for (int i = 0; i < 4; i++)// 计算每个电机的误差
     {
-        // 总功率 = 有用功率 + 损耗功率
-        // 损耗功率模型：k1*|转速| + k2*目标转矩² + k3/4（k3平均分配到4个电机）
-        power[i] = Power_In[i] + k3/4.0f + power_useful[i];
+        PowerCtrl_Info.Err[i] = (float)abs(motor_target_speed_rad[i] - measure.speed_rad);
     }
-//    // 当总功率超过上限时，执行功率限制逻辑
-    if (power_all > power_max) {
+
+    // 计算总误差绝对值（控制精度指标）
+    PowerCtrl_Info.Sum.Err_Sum = PowerCtrl_Info.Err[0] + PowerCtrl_Info.Err[1] +
+                                  PowerCtrl_Info.Err[2] + PowerCtrl_Info.Err[3];
+
+    // 计算功率分配因子K（基于误差大小的自适应权重）
+    if (PowerCtrl_Info.Sum.Err_Sum > PowerCtrl_Info.Param.Err_Upper)
+        PowerCtrl_Info.K = 1;  // 误差大，完全按误差分配
+    else if (PowerCtrl_Info.Sum.Err_Sum < PowerCtrl_Info.Param.Err_Lower)
+        PowerCtrl_Info.K = 0;  // 误差小，完全按功率分配
+    else
+        // 误差中等,线性插值分配
+        PowerCtrl_Info.K = (PowerCtrl_Info.Sum.Err_Sum - PowerCtrl_Info.Param.Err_Lower) /
+                            (PowerCtrl_Info.Param.Err_Upper - PowerCtrl_Info.Param.Err_Lower);
+
+    // 计算每个电机的功率分配权重（港科大论文的功率分配方法）
+    for (int i = 0; i < 4; i++)
+    {
+        // 权重 = K×(误差权重) + (1-K)×(功率权重)
+        PowerCtrl_Info.Menbership[i] = (PowerCtrl_Info.K * (fabs(PowerCtrl_Info.Err[i]) / PowerCtrl_Info.Sum.Err_Sum) +
+                (1 - PowerCtrl_Info.K) * (fabs(PowerCtrl_Info.Target.Power_In[i]) / PowerCtrl_Info.Sum.Power_Sum));
+
+        // 计算每个电机的功率限制值
+        PowerCtrl_Info.Power_Limit[i] = PowerCtrl_Info.Menbership[i] * PowerCtrl_Info.Power_Allin;
+    }
+
+
+    /* ==================== 功率限制处理 ==================== */
+
+    // 如果总功率超过限制，执行功率限制算法
+    if (PowerCtrl_Info.Sum.Power_Sum >= PowerCtrl_Info.Power_Max)
+    {
         float Decrease;  // 功率衰减系数
-        Decrease = power_max / power_all;
-        power_out_state = 1;  //控制是否直接发送给电机计算得来得力矩值
-        float errorConfidence = 0.0f;
-        if (sum_error > 500.0f) {
-            errorConfidence = 1.0f;
-        } else if (sum_error < 0.0001) {
-            errorConfidence = 0.0f;
-        } else {
-            errorConfidence =
-                    fmaxf(0.0f,
-                          fminf(1.0f,
-                                (sum_error - 0.0001f) /
-                                (500.0f - 0.0001f)
-                          )
-                    );
-        }
+        powerOverloadFlag = 0;  //开启超功率标志位
+        // 计算功率衰减系数：功率限制/实际功率，限制在[0,1]范围
+        Decrease = PowerCtrl_Info.Power_Max / PowerCtrl_Info.Sum.Power_Sum;
+        VAL_LIMIT(Decrease, 0, 1);
 
-        for (int i = 0; i < 4; i++) {
-            powerWeight_Error = power_max * (measure_error[i] / sum_error); //按误差error大小分配权重
-            powerWeight_Prop = power_max * (power[i] / power_all);        //比例分配权重
-            power_cmd[i] = errorConfidence * powerWeight_Error + (1.0f - errorConfidence) * powerWeight_Prop;
+        // 对每个电机进行功率限制计算
+        for (int i = 0; i < 4; i++)
+        {
+            /* 单个电机求解功率方程：P_limit = K1*ω² + K2*τ² + τ*ω + K3/4
+               整理为二次方程：K1*ω² + ω*τ + (K2*τ² + K3/4 - P_limit) = 0
+               标准形式：A*τ² + B*τ + C = 0
+            */
+            PowerCtrl_Info.A = PowerCtrl_Info.Param.K2;  // 二次项系数
+            PowerCtrl_Info.B = PowerCtrl_Info.Target.Omiga[i];  // 一次项系数（角速度）
+            PowerCtrl_Info.C = PowerCtrl_Info.Target.Omiga_2[i] * PowerCtrl_Info.Param.K1 +
+                                PowerCtrl_Info.Param.K3 * 0.25 - PowerCtrl_Info.Power_Limit[i];  // 常数项
 
-            // 功率方程：power_cmd = 有用功率 + 损耗功率
-            // 代入有用功率 = 转矩×转速、损耗功率=k1*|转速| + k2*转矩² + k3/4
-            // 整理得：k2*转矩² + 转速*转矩 + (k1*转速 + k3/4 - power_cmd) = 0
-            // 以下为二次方程ax²+bx+c=0的判别式：b²-4ac
-            sqrt_input = (omega_cmd[i] * omega_cmd[i]) -
-                         (4.0f * k2 * (k1 * omega_cmd[i] * omega_cmd[i]) + k3 / 4.0f - power_cmd[i]);
-            if (floatEqual(sqrt_input, 0.0f))//sqrt_input比0.0小
+            // 计算判别式Δ = B² - 4AC
+            PowerCtrl_Info.Delta = powf(PowerCtrl_Info.B, 2.f) - 4 * PowerCtrl_Info.A * PowerCtrl_Info.C;
+
+            // 检查判别式是否有效
+            if (isnan(PowerCtrl_Info.Delta) == 1 || isinf(PowerCtrl_Info.Delta) == 1)
+                PowerCtrl_Info.Delta = 0;  // 无效值处理
+
+            // 根据判别式大小求解转矩
+            if (PowerCtrl_Info.Delta >= 0)  // 有实数解
             {
-                torque_cmd[i] = -omega_cmd[i] / 2.0f / k2;  //无解，近似于-B/2A
-            }
-            else if (sqrt_input > 0.0f)
-            {
-                if (I_cmd[i] > 0) {
-                    torque_cmd[i] = (-omega_cmd[i] + sqrtf(sqrt_input)) / (2.0f * k2);
-                } else {
-                    torque_cmd[i] = (-omega_cmd[i] - sqrtf(sqrt_input)) / (2.0f * k2);
+                PowerCtrl_Info.Sqrt = sqrtf(PowerCtrl_Info.Delta);
+
+                if (I_cmd[i] >= 0)  // 正转情况
+                {
+                    // 取正根解
+                    PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B + PowerCtrl_Info.Sqrt) / (2 * PowerCtrl_Info.A);
+                    // 转矩转电流，并应用功率衰减
+                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
                 }
-            } else {
-                torque_cmd[i] = -omega_cmd[i] / 2.0f / k2;  //唯一解，近似于-B/2A
+                else  // 反转情况
+                {
+                    // 取负根解
+                    PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B - PowerCtrl_Info.Sqrt) / (2 * PowerCtrl_Info.A);
+                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                }
             }
-            VAL_LIMIT(torque_cmd[i], -0.2f, 0.2f);  //限幅防止跑飞
-            motor_target_current_look[i] = (int16_t) (torque_cmd[i] / Icmd_2_current / K_torque / wheel_ratio * Decrease);//从力矩换到发送的电流值
-            VAL_LIMIT(motor_target_current_look[i], -4000, 4000);//限幅防止跑飞
+            else  // 无实数解，使用近似解
+            {
+                if (I_cmd[i] >= 0)
+                {
+                    // 使用顶点近似：τ = -B/2A
+                    PowerCtrl_Info.Torque[i] = (-PowerCtrl_Info.B) / (2 * PowerCtrl_Info.A);
+                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                }
+                else
+                {
+                    PowerCtrl_Info.Torque[i] = (PowerCtrl_Info.B) / (2 * PowerCtrl_Info.A);
+                    PowerCtrl_Info.Output[i] = (PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease;
+                }
+            }
         }
-    } else {
-        motor_target_current_look[0] = 0;//如果没超功率，把先前计算的值归零,然后自动调用pid计算
-        motor_target_current_look[1] = 0;
-        motor_target_current_look[2] = 0;
-        motor_target_current_look[3] = 0;
-        torque_cmd[0] = 0;
-        torque_cmd[1] = 0;
-        torque_cmd[2] = 0;
-        torque_cmd[3] = 0;
     }
+
+}
+
+/**
+ * @brief 功率控制系统初始化
+ * @param PowerCtrl_Info 功率控制信息结构体指针
+ * @param Lamda RLS遗忘因子（0-1，值越大记忆越长）
+ * @param P RLS协方差矩阵初始值
+ * @param PowerCtrl_Param 功率控制参数数组
+ * @note 初始化RLS滤波器和功率控制参数
+ */
+void PowerCtrl_Init(PowerCtrl_Typedef *Power_Info, float Lamda, float P, float PowerCtrlParam[5])
+{
+    // 初始化RLS滤波器：2个输入(转矩平方和,角速度平方和)，1个输出(功率)
+    RLS_Init(&RLS_Power_Info, 2, 1, Lamda, P);
+
+    // 设置功率模型参数：K1-转速损耗系数，K2-转矩损耗系数，K3-固定损耗
+    Power_Info->Param.K1 = PowerCtrlParam[0];
+    Power_Info->Param.K2 = PowerCtrlParam[1];
+    Power_Info->Param.K3 = PowerCtrlParam[2];
+
+    // 设置误差阈值：用于功率分配权重计算
+    Power_Info->Param.Err_Lower = PowerCtrlParam[3];  // 误差下限
+    Power_Info->Param.Err_Upper = PowerCtrlParam[4];  // 误差上限
+
+    // 初始化RLS权重参数
+    RLS_Power_Info.Data.W[0] = Power_Info->Param.K1;
+    RLS_Power_Info.Data.W[1] = Power_Info->Param.K2;
+
 }
 
 #endif
@@ -476,16 +532,11 @@ void ChassisTask_Entry(void const * argument)
     bsp_can_init();
     can_filter_init();
     chassis_yaw_pid = pid_register(&chassis_yaw_config);   /* 注册 PID 实例 */
+
 #ifdef RLS_POWER_LIMIT
-    // 初始化RLS滤波器
-    // 参数：滤波器实例指针, 输入向量大小, 输出向量大小, 遗忘因子, P矩阵初始值
-    RLS_Init(&rls_filter, 2, 1, 0.99999f, 1e-5f);
-    k1 = 1e-05f;
-    k2 = 22.0f;
-    k3 = 3.0f;
-    rls_filter.Data.W[0] = k1;
-    rls_filter.Data.W[1] = k2;
+    PowerCtrl_Init(&PowerCtrl_Info,0.99995f,1e-5f,Power_Ctrl_Param);
 #endif
+
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
@@ -510,18 +561,15 @@ void ChassisTask_Entry(void const * argument)
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         mecanum_calc(&cmd_chassis, motor_target_speed_rad);
 #ifdef RLS_POWER_LIMIT
-        /* RLS功率限制计算 - 每周期计算，但只在功率数据更新时更新权重 */
         static float last_power_timestamp = 0.0f;  // 记录上次RLS更新权重时的时间戳
         uint8_t should_update_weights = 0;
-
         // 通过比较时间戳判断功率数据是否更新
         if (power_update_timestamp != last_power_timestamp)
         {
-            should_update_weights = 1;  // 功率数据已更新，需要更新RLS权重
+            should_update_weights = 1;  // 真实功率数据已更新，需要更新RLS权重
             last_power_timestamp = power_update_timestamp;
         }
-
-        // 每个周期都执行，但只在功率数据更新时才更新权重系数
+        // 每个周期都执行,但只在功率数据更新和运动时才更新权重系数
         rls_power_limit(should_update_weights);
 #endif
         dji_motor_control();

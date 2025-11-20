@@ -48,7 +48,7 @@ typedef struct
     struct
     {
         float *X;
-        float	*XT;
+        float *XT;
         float *Lamda;
         float *E;
         float *W;
@@ -60,12 +60,7 @@ typedef struct
         float *K_Denominator;
         float *Cache_Matrix[3];
         float *Output;
-
     }Data;
-
-
-
-
 }RLS_Info_TypeDef;
 
 extern void RLS_Update(RLS_Info_TypeDef *RLS);

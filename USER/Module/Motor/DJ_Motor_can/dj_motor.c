@@ -6,6 +6,7 @@
 #include "motor_def.h"
 #include "robot.h"
 #include "bsp_fdcan.h"
+#include "chassis_task.h"
 
 #define DJI_MOTOR_CNT 14             // 默认波特率下，实测挂载电机极限数量
 
@@ -99,10 +100,8 @@ void dji_motor_enable(dji_motor_object_t *motor)
 {
     motor->stop_flag = MOTOR_ENALBED;
 }
-extern uint8_t power_out_state;
-extern int16_t motor_target_current_look[4];
-int16_t look_send[4];
 
+extern uint8_t powerOverloadFlag;  //超功率标志位
 // 运算所有电机实例的控制器,发送控制报文
 void dji_motor_control()
 {
@@ -119,13 +118,16 @@ void dji_motor_control()
         motor = dji_motor_obj[i];
         id = motor->rx_id - 0x201;     // 对应多电机模式下的ID转换规则
         measure = motor->measure;
-        motor_current_set = motor->control(measure); // 调用对接的电机控制器计算
-        if(power_out_state == 1)
+        if( powerOverloadFlag == 1)//超过功率，发送计算出来的转子电流目标值   //由于调用特殊性,目前先这样改,防止多次无用调用pid，i的累加导致误差
         {
-            motor_current_set = motor_target_current_look[i];
+            motor_current_set = PowerCtrl_Info.Output[i];
         }
-        look_send[i] = motor_current_set;
-        LIMIT_MIN_MAX(motor_current_set,  -5000,  5000);
+        else
+        {
+            motor_current_set = motor->control(measure); // 调用对接的电机控制器计算
+        }
+        powerOverloadFlag = 0;  //清除超功率标志位
+        LIMIT_MIN_MAX(motor_current_set,  -2700,  2700);//限幅
         // 合并报文
         if (motor->stop_flag == MOTOR_STOP)
         {
