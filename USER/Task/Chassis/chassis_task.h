@@ -45,7 +45,6 @@ typedef struct
 
     float K;
     float Power_Max;      // 最大功率
-    float Power_Allin;    // 期望输出总功率
     float Power_Limit[4]; // 输出功率限制
     float Menbership[4];  // 隶属度
     float Torque[4];      // 输出力矩
@@ -60,7 +59,7 @@ typedef struct
         float power_useful_Sum;
         float input_Sum;
     }
-            Sum; // 一些数据求和
+    Sum; // 一些数据求和
     struct
     {
         float RLS_Input[4];
@@ -70,7 +69,16 @@ typedef struct
         float Omiga_2[4];
         float power_useful[4];
     }
-            Target; // 模型输入的参数
+    Measure; // 模型输入的参数
+
+    struct
+    {
+        float RLS_Input_cmd[4];
+        float Torque_cmd[4];
+        float Omiga_cmd[4];
+    }
+        Target; // 模型输入的参数
+
     float Output[4];
     PowerCtrl_Parameter_Typedef Param;
 } PowerCtrl_Typedef;
