@@ -318,11 +318,18 @@ void mit_ctrl(hcan_t* hcan, motor_t *motor, uint16_t motor_id, float pos, float 
 	uint16_t pos_tmp,vel_tmp,kp_tmp,kd_tmp,tor_tmp;
 	uint16_t id = motor_id + MIT_MODE;
 
+    pos = fmaxf(fminf(pos, motor->tmp.PMAX), -motor->tmp.PMAX);
+    vel = fmaxf(fminf(vel, motor->tmp.VMAX), -motor->tmp.VMAX);
+    kp = fmaxf(fminf(kp, KP_MAX), KP_MIN);
+    kd = fmaxf(fminf(kd, KD_MAX), KD_MIN);
+    tor = fmaxf(fminf(tor,motor->tmp.TMAX), -motor->tmp.TMAX);
+
 	pos_tmp = float_to_uint(pos, -motor->tmp.PMAX, motor->tmp.PMAX, 16);
 	vel_tmp = float_to_uint(vel, -motor->tmp.VMAX, motor->tmp.VMAX, 12);
 	tor_tmp = float_to_uint(tor, -motor->tmp.TMAX, motor->tmp.TMAX, 12);
 	kp_tmp  = float_to_uint(kp,  KP_MIN, KP_MAX, 12);
 	kd_tmp  = float_to_uint(kd,  KD_MIN, KD_MAX, 12);
+
 
 	data[0] = (pos_tmp >> 8);
 	data[1] = pos_tmp;

@@ -82,7 +82,7 @@ void DMcontrol_motor_5(hcan_t* hcan, DMmotorControl* motor_control, float target
 
 void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target_angle);
 
-void DMcontrol_motor_7(hcan_t* hcan, DMmotorControl* motor_control, float target_angle);
+void DMcontrol_motor_7(hcan_t* hcan);
 
 
 

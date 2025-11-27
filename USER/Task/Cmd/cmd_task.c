@@ -115,10 +115,10 @@ void CmdTask_Entry(void const * argument)
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         pc_data = convert_remote_to_pc(&referee_fdb.remote_control);
         PC_keyboard_mouse(&pc_data);
-        chassis_cmd_state_machine();
-        //pum_ctrl();
-        arm_cmd_state_machine(); // 机械臂状态机
         remote_to_cmd_sbus();
+        arm_cmd_state_machine(); // 机械臂状态机
+        chassis_cmd_state_machine();
+        Gripper_ctrl();
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -165,6 +165,7 @@ static void cmd_sub_pull(void)
 static uint8_t fn_1_last_state = 0;  // 保存上次的状态,初始为未按下
 static uint8_t fn_2_last_state = 0;  // 保存上次的状态,初始为未按下
 extern pump_mode_e pump_mode;
+extern Gripper_mode_e Gripper_mode;
 extern struct arm_cmd_msg arm_cmd;
 /* ------------------------------ 将遥控器数据转换为控制指令 ----------------------------- */
 void remote_to_cmd_sbus(void) {
@@ -180,10 +181,13 @@ void remote_to_cmd_sbus(void) {
         cmd_chassis.vw = (vt13_remote_parsed_data_fdb.ch[0] * CHASSIS_VT13_RC_MOVE_RATIO_W / VT13_RC_MAX_VALUE
                           + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
 
-        if (vt13_remote_parsed_data_fdb.mode_sw == 0) {  // 假设mode_sw=0为关闭
-            pump_mode =PUMP_OPEN ;
-        } else if (vt13_remote_parsed_data_fdb.mode_sw == 1) {  // mode_sw=1为打开
-            pump_mode = PUMP_CLOSE;
+        if (vt13_remote_parsed_data_fdb.mode_sw == 0)
+        {
+            Gripper_mode =Gripper_OPEN ;
+        }
+        else
+        {
+            Gripper_mode =Gripper_CLOSE;
         }
 
         if(vt13_remote_parsed_data_fdb.fn_1 && !fn_1_last_state){
@@ -214,9 +218,9 @@ void remote_to_cmd_sbus(void) {
         }
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
         if (sbus_data_fdb.sw3 == RC_UP) {
-            pump_mode = PUMP_CLOSE;
+            Gripper_mode = Gripper_CLOSE;
         } else if (sbus_data_fdb.sw3 == RC_DN) {
-            pump_mode = PUMP_OPEN;
+            Gripper_mode = Gripper_OPEN;
         }
 
         if (sbus_data_fdb.sw2 == RC_UP) {
@@ -261,19 +265,8 @@ void remote_to_cmd_sbus(void) {
 //    }
 //}
 
-//void pum_ctrl(void)
-//{
-//    if (pump_mode == PUMP_OPEN)
-//    {
-//        HAL_GPIO_WritePin(PUMP1_GPIO_Port, PUMP1_Pin, GPIO_PIN_SET);
-//    }
-//    else if (pump_mode == PUMP_CLOSE)
-//    {
-//        HAL_GPIO_WritePin(PUMP1_GPIO_Port, PUMP1_Pin, GPIO_PIN_RESET);
-//    }
-//}
 
-void pum_ctrl(void)
+void Gripper_ctrl(void)
 {
     if (pump_mode == PUMP_OPEN)
     {

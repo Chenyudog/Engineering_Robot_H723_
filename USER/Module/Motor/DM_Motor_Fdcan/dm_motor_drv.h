@@ -10,9 +10,9 @@
 #define PSI_MODE		  	0x300
 
 #define KP_MIN 0.0f
-#define KP_MAX 500.0f
+#define KP_MAX 5.0f
 #define KD_MIN 0.0f
-#define KD_MAX 5.0f
+#define KD_MAX 1.0f
 
 typedef enum
 {

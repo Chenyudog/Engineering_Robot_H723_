@@ -94,17 +94,18 @@ void dm_motor_init(void)
     motor[Motor6].tmp.PMAX = 12.5f;
     motor[Motor6].tmp.VMAX = 30.0f;
 
-//    // 初始化电机7
-//    motor[Motor7].id = 0x07;
-//    motor[Motor7].mst_id = 0x17;
-//    motor[Motor7].tmp.read_flag = 1;
-//    motor[Motor7].ctrl.mode = mit_mode;
-//    motor[Motor7].ctrl.vel_set = 0.0f;
-//    motor[Motor7].ctrl.pos_set = 0.0f;
-//    motor[Motor7].ctrl.kp_set = 0.0f;
-//    motor[Motor7].ctrl.kd_set = 0.0f;
-//    motor[Motor7].tmp.PMAX = 0.0f;
-//    motor[Motor7].tmp.VMAX = 0.0f;
+    // 初始化电机7
+    motor[Motor7].id = 0x07;
+    motor[Motor7].mst_id = 0x17;
+    motor[Motor7].tmp.read_flag = 1;
+    motor[Motor7].ctrl.mode = mit_mode;
+    motor[Motor7].ctrl.vel_set = 0.0f;
+    motor[Motor7].ctrl.pos_set = 0.0f;
+    motor[Motor7].ctrl.kp_set = 0.0f;
+    motor[Motor7].ctrl.kd_set = 0.0f;
+    motor[Motor7].tmp.PMAX = 4.0f;
+    motor[Motor7].tmp.VMAX = 0.5f;
+    motor[Motor7].tmp.TMAX = 4.0f;
 
 }
 /**

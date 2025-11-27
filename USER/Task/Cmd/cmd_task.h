@@ -7,6 +7,15 @@
 #include "cmsis_os.h"
 
 void remote_to_cmd_sbus(void);
-void pum_ctrl(void);
+void Gripper_ctrl(void);
+
+
+
+typedef enum
+{
+    Gripper_CLOSE,
+    Gripper_OPEN,
+} Gripper_mode_e;
+
 
 #endif //CTRBOARD_H7_ALL_CMD_TASK_H
