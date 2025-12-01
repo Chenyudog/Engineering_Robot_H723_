@@ -145,7 +145,7 @@ void DMmotorTask_Entry(void const * argument)
         pos_ctrl(&hfdcan2, motor[i].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
     }
-
+    vTaskDelay(200); // 延时，等待电机稳定
     dm_motor_enable(&hfdcan2, &motor[Motor7]);//不用校准//开始发送夹爪初始化控制指令
     vTaskDelay(200); // 延时，等待电机稳定
 
@@ -184,8 +184,8 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
-            DMcontrol_motor_7(&hfdcan2);//夹爪控制//一键夹取功能
         }
+        DMcontrol_motor_7(&hfdcan2);//夹爪控制//一键夹取功能
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -270,7 +270,7 @@ void smooth_motion_6(hcan_t* hcan, motor_t* motor, float target_angle) {
 }
 
 void smooth_motion_7(hcan_t* hcan, motor_t* motor, float target_rad,float target_torque,float target_vel,float kp,float kd) {
-    mit_ctrl(hcan,&motor[Motor7],motor->id,target_rad, target_vel, kp, kd, target_torque);
+    mit_ctrl(hcan,motor,motor->id,target_rad, target_vel, kp, kd, target_torque);
 }
 
 void DMcontrol_motor_1(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
@@ -393,22 +393,22 @@ void DMcontrol_motor_7(hcan_t* hcan)
     float target_rad,target_torque,target_vel,target_kp,target_kd;
     if(Gripper_mode == Gripper_OPEN)//一键抓取模式,在这里调参
     {
-        target_rad = 0.0f;
+        target_rad = -3.0f;
         target_torque = 0.0f;
         target_vel = 0.0f;
-        target_kp = 0.0f;
-        target_kd = 0.0f;
+        target_kp = 1.2f;
+        target_kd = 0.3f;
     }
-    else
+    else//关闭
     {
-        target_rad = 0.0f;
+        target_rad = 3.0f;
         target_torque = 0.0f;
         target_vel = 0.0f;
-        target_kp = 0.0f;
-        target_kd = 0.0f;
+        target_kp = 1.2f;
+        target_kd = 0.3f;
     }
 
-    smooth_motion_7(hcan, &motor[Motor7],target_rad,target_torque,target_vel,target_kp,target_kd);
+    smooth_motion_7(hcan, &motor[Motor7], target_rad, target_torque ,target_vel,target_kp,target_kd);
 }
 
 

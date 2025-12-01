@@ -103,9 +103,9 @@ void dm_motor_init(void)
     motor[Motor7].ctrl.pos_set = 0.0f;
     motor[Motor7].ctrl.kp_set = 0.0f;
     motor[Motor7].ctrl.kd_set = 0.0f;
-    motor[Motor7].tmp.PMAX = 4.0f;
-    motor[Motor7].tmp.VMAX = 0.5f;
-    motor[Motor7].tmp.TMAX = 4.0f;
+    motor[Motor7].tmp.PMAX = 50.0f;
+    motor[Motor7].tmp.VMAX = 20.0f;
+    motor[Motor7].tmp.TMAX = 5.0f;
 
 }
 /**

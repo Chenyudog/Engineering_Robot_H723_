@@ -52,6 +52,7 @@ void INA226_Init(void) {
     // 配置寄存器
     INA226_WriteRegister(INA226_REG_CONFIG, INA226_CONFIG_DEFAULT);
     dwt_delay_us(5);
+    
 
     // 校准寄存器（关键：决定电流/功率计算精度）
     INA226_WriteRegister(INA226_REG_CALIB, INA226_CALIB_DEFAULT);

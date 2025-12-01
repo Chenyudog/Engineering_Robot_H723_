@@ -40,7 +40,7 @@ static float base_delta_w = MAX_CHASSIS_VW_SPEED  / KEY_ACC_TIME;
 #define DEAD_ZONE             5.0f    // 速度死区(mm/s)
 
 pump_mode_e pump_mode = PUMP_INIT;
-Gripper_mode_e Gripper_mode = Gripper_CLOSE;
+Gripper_mode_e Gripper_mode = Gripper_OPEN;
 // 全局键盘控制对象定义
 keyboard_control_t keyboard = {
         .vx = 0, .vy = 0, .vw = 0,

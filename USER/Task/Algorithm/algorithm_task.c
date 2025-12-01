@@ -41,7 +41,7 @@ static float algorithm_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 
 static mat_type_t filtered_data[NUM_JOINTS];
-static float angles[7] = {0}; // 从队列中读取的角度值（度数）
+static float angles[6] = {0}; // 从队列中读取的角度值（度数）
 
 extern QueueHandle_t xKalmanOneQueue;
 extern QueueHandle_t xControlQueue; // 队列句柄

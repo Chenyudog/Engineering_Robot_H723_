@@ -312,6 +312,8 @@ void clear_err(hcan_t* hcan, uint16_t motor_id, uint16_t mode_id)
 * @details:    	通过CAN总线向电机发送MIT模式下的控制帧。
 ************************************************************************
 **/
+
+
 void mit_ctrl(hcan_t* hcan, motor_t *motor, uint16_t motor_id, float pos, float vel,float kp, float kd, float tor)
 {
 	uint8_t data[8];
@@ -352,7 +354,7 @@ void mit_ctrl(hcan_t* hcan, motor_t *motor, uint16_t motor_id, float pos, float 
 * @details:    	通过CAN总线向电机发送位置速度控制命令
 ************************************************************************
 **/
-void pos_ctrl(hcan_t* hcan,uint16_t motor_id, float pos, float vel)
+void pos_ctrl(hcan_t* hcan, uint16_t motor_id, float pos, float vel)
 {
 	uint16_t id;
 	uint8_t *pbuf, *vbuf;

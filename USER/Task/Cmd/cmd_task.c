@@ -218,9 +218,9 @@ void remote_to_cmd_sbus(void) {
         }
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
         if (sbus_data_fdb.sw3 == RC_UP) {
-            Gripper_mode = Gripper_CLOSE;
-        } else if (sbus_data_fdb.sw3 == RC_DN) {
             Gripper_mode = Gripper_OPEN;
+        } else if (sbus_data_fdb.sw3 == RC_DN) {
+            Gripper_mode = Gripper_CLOSE;
         }
 
         if (sbus_data_fdb.sw2 == RC_UP) {
