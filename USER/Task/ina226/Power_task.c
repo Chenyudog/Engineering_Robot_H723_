@@ -3,15 +3,18 @@
 #include "drv_dwt.h"
 #include "Power_task.h"
 #include "myi2c.h"
-
+#include "W25Q64.h"
 
 /* -------------------------------- 读取功率相关 --------------------------------- */
-float ina226_bus_voltage = 0.0f;    // 总线电压（V）
-float ina226_shunt_voltage = 0.0f;  // 分流电压（mV）
-float ina226_current = 0.0f;        // 电流（A）
+//float ina226_bus_voltage = 0.0f;    // 总线电压（V）
+//float ina226_shunt_voltage = 0.0f;  // 分流电压（mV）
+//float ina226_current = 0.0f;        // 电流（A）
 float ina226_power = 0.0f;          // 功率（W）
 uint16_t reg;//寄存器内容
 float power_update_timestamp = 0.0f;//检测功率是否更新，用于rls算法
+extern uint32_t test_value ;
+uint32_t runtime_value = 0;
+uint32_t count = 0;
 /* -------------------------------- 读取功率相关 --------------------------------- */
 
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
@@ -20,24 +23,23 @@ static float power_task_dt = 0;       // 线程实际运行时间dt
 static float power_task_delta = 0;    // 监测线程运行时间
 static float power_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
-
 void PowerTask_Entry(void const * argument)
 {
     power_task_dt = dwt_get_delta(&power_task_dwt);
     power_task_start_dt = dwt_get_time_ms();
     INA226_Init();//初始化ina226模块，初始化失败则读不到数据
+
     for(;;)
     {
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
-    power_task_delta = dwt_get_time_ms() - power_task_start_dt;
-    power_task_start_dt = dwt_get_time_ms();
-    power_task_dt = dwt_get_delta(&power_task_dwt);
-/* -------------------------------- 调试监测线程调度 --------------------------------- */
-    INA226_UpdateData();//更新功率
-    //reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
-    vTaskDelay(1);
+        power_task_delta = dwt_get_time_ms() - power_task_start_dt;
+        power_task_start_dt = dwt_get_time_ms();
+        power_task_dt = dwt_get_delta(&power_task_dwt);
+    /* -------------------------------- 调试监测线程调度 --------------------------------- */
+        INA226_UpdateData();//更新功率
+        reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
+        vTaskDelay(1);
     }
-
 }
 
 
@@ -52,7 +54,7 @@ void INA226_Init(void) {
     // 配置寄存器
     INA226_WriteRegister(INA226_REG_CONFIG, INA226_CONFIG_DEFAULT);
     dwt_delay_us(5);
-    
+
 
     // 校准寄存器（关键：决定电流/功率计算精度）
     INA226_WriteRegister(INA226_REG_CALIB, INA226_CALIB_DEFAULT);
@@ -157,7 +159,7 @@ void INA226_UpdateData(void) {
 //        ina226_bus_voltage = (float)raw_data * INA226_BUS_V_LSB / 1000.0f;
 //    }
 //    dwt_delay_us(1);
-    
+
 
 //    // 读取分流电压（有符号）
 //    raw_data = INA226_ReadRegister(INA226_REG_SHUNT_V);

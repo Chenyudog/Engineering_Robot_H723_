@@ -127,6 +127,7 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Module/rtt_log/SEGGER/Config
         USER/Module/rtt_log/SEGGER/RTT
         USER/Module/Myi2c
+        USER/Module/W25Q64
 
 
         USER/Task/Algorithm
@@ -178,6 +179,7 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Module/rtt_log/SEGGER/Config/*.*"
         "USER/Module/rtt_log/SEGGER/RTT/*.*"
         "USER/Module/Myi2c/*.*"
+        "USER/Module/W25Q64/*.*"
 
         "USER/Task/Algorithm/*.*"
         "USER/Task/Chassis/*.*"

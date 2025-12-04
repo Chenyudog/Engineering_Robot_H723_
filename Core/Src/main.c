@@ -23,6 +23,7 @@
 #include "dma.h"
 #include "fdcan.h"
 #include "memorymap.h"
+#include "octospi.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -122,6 +123,7 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI1_Init();
   MX_TIM2_Init();
+  MX_OCTOSPI2_Init();
   /* USER CODE BEGIN 2 */
     MX_USB_DEVICE_Init();
     dwt_init();
