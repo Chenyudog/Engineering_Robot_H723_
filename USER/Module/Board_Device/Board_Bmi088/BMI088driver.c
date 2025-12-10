@@ -16,7 +16,7 @@
 #include "drv_dwt.h"
 #include <math.h>
 
-
+#define BSP_BMI088_CALI //imu校准模式开关
 static const float BMI088_ACCEL_SEN = BMI088_ACCEL_6G_SEN;
 static const float BMI088_GYRO_SEN = BMI088_GYRO_2000_SEN;
 static uint8_t res = 0;
@@ -103,10 +103,10 @@ void Calibrate_MPU_Offset(ImuDataTypeDef *bmi088)
 
     float gNormTemp, gNormMax, gNormMin;  // 加速度计极值
 
-#ifndef BSP_BMI088_CALI  // 更换开发板或定期校准，以便快速启动
-    static uint8_t cali_dt_max = 0;   // 对于不同开发板都需要定期校准，此处，已经校准故cali_dt_max = 0
-#elif
-    static uint8_t cali_dt_max = 20;
+#ifdef BSP_BMI088_CALI  // 更换开发板或定期校准，以便快速启动
+    static uint8_t cali_dt_max = 10;   // 对于不同开发板都需要定期校准，此处，已经校准故cali_dt_max = 0
+#else
+    static uint8_t cali_dt_max = 0;
 #endif /* BSP_BMI088_CALI */
 
     startTime = dwt_get_time_s();
@@ -119,7 +119,7 @@ void Calibrate_MPU_Offset(ImuDataTypeDef *bmi088)
             bmi088->gyro_offset[1] = GyOFFSET;
             bmi088->gyro_offset[2] = GzOFFSET;
             bmi088->g_norm = gNORM;
-            bmi088->temp_when_cali = 40;
+            bmi088->temp_when_cali = 32;
             break;
         }
 
