@@ -126,7 +126,7 @@ void dji_motor_control()
         {
             motor_current_set = motor->control(measure); // 调用对接的电机控制器计算
         }
-        LIMIT_MIN_MAX(motor_current_set, -2500, 2500);//限幅
+        LIMIT_MIN_MAX(motor_current_set, -5000, 5000);//限幅
         // 合并报文
         if (motor->stop_flag == MOTOR_STOP)
         {

@@ -31,7 +31,7 @@
 #include "rls_arm.h"
 #include "Power_task.h"
 
-#define RLS_POWER_LIMIT//功率限制开关
+//#define RLS_POWER_LIMIT//功率限制开关
 #define YAW_CONTROL //yaw轴控制底盘开关
 #define K_power 0.10472f//  rpm -> rad/s
 #define wheel_ratio    0.05207463310219f  //转子转速转换成轮子转速   1/减速比 ≈ 187/3591 =0.052074
@@ -48,7 +48,7 @@ static float Power_Ctrl_Param[5] = {1e-05f, 20.0f, 2.8f, 0.0001f, 500};//RLS拟�
 
 float I_cmd[4];//PID计算出来的要发送的电流
 uint8_t powerOverloadFlag = 0;  //超功率标志位
-float power_max = 20.0f;//便于调试
+float power_max = 25.0f;//便于调试
 float Decrease;  // 功率衰减系数
 
 /*================================= 功率控制相关 ================================= */
@@ -57,7 +57,7 @@ float Decrease;  // 功率衰减系数
 static struct ins_msg ins_data;
 static float target_yaw = 0.0f;
 static pid_obj_t *chassis_yaw_pid;
-static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.5, 0.0, 0.0135, 0.0, 4.3, PID_Trapezoid_Intergral);
+static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.35, 0.0, 0.0105, 0.0, 4.3, PID_Trapezoid_Intergral);
 static publisher_t * pub_chassis;
 static subscriber_t* sub_ins;
 
@@ -98,7 +98,7 @@ static int16_t motor_control_0(dji_motor_measure_t measure)
     static int16_t chassis_power_limit=0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 4000;
+        motor_max_current = 5000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[0].speed_pid, measure.speed_rad, motor_target_speed_rad[0]);
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -112,7 +112,7 @@ static int16_t motor_control_1(dji_motor_measure_t measure)
     static int16_t chassis_power_limit = 0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 4000;
+        motor_max_current = 5000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[1].speed_pid, measure.speed_rad , motor_target_speed_rad[1] );
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -126,7 +126,7 @@ static int16_t motor_control_2(dji_motor_measure_t measure)
     static int16_t chassis_power_limit = 0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 4000;
+        motor_max_current = 5000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[2].speed_pid, measure.speed_rad, motor_target_speed_rad[2]);
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -140,7 +140,7 @@ static int16_t motor_control_3(dji_motor_measure_t measure)
     static int16_t chassis_power_limit = 0;
     if (chassis_power_limit==0)
     {
-        motor_max_current = 4000;
+        motor_max_current = 5000;
     }
     motor_current_set =(int16_t) pid_calculate(chassis_controller[3].speed_pid, measure.speed_rad , motor_target_speed_rad[3]);
     VAL_LIMIT(motor_current_set , -motor_max_current, motor_max_current);
@@ -215,12 +215,11 @@ static void mecanum_calc(struct cmd_chassis_msg *cmd, int16_t* out_speed)
     VAL_LIMIT(cmd->vw, -MAX_CHASSIS_VW_SPEED, MAX_CHASSIS_VW_SPEED);  //rad/s
 #ifdef YAW_CONTROL
     if (cmd_chassis.ctrl_mode == CHASSIS_ENABLE) {
-        target_yaw -= cmd_chassis.vw * chassis_task_dt * 57.3;
+        target_yaw -= cmd_chassis.vw * chassis_task_dt * 57.3 ;
     }//加负号让其满足左加右
     else if (cmd_chassis.ctrl_mode == CHASSIS_RELAX) {
         target_yaw = ins_data.yaw_total_angle;
     }
-
     cmd->vw = -pid_calculate(chassis_yaw_pid,ins_data.yaw_total_angle,target_yaw);
     VAL_LIMIT(cmd->vw, -MAX_CHASSIS_VW_SPEED, MAX_CHASSIS_VW_SPEED);  //rad/s
 #endif
@@ -384,7 +383,7 @@ void rls_power_limit(uint8_t update_weights) {
     {
         // 更新RLS滤波器权重参数
         RLS_Update(&RLS_Power_Info);
-        PowerCtrl_Info.Param.K1 = fmaxf(fminf(RLS_Power_Info.Data.W[0], 1e-3f), 1e-7f);
+        PowerCtrl_Info.Param.K1 = fmaxf(fminf(RLS_Power_Info.Data.W[0], 5e-3f), 5e-7f);
         PowerCtrl_Info.Param.K2 = fmaxf(fminf(RLS_Power_Info.Data.W[1], 30.0f), 1e-5f);
         // 使用新参数重新计算总功率预测
         PowerCtrl_Info.Sum.Power_Sum =PowerCtrl_Info.Param.K1 * PowerCtrl_Info.Sum.Omiga2_Sum +
@@ -481,7 +480,7 @@ void rls_power_limit(uint8_t update_weights) {
                     PowerCtrl_Info.Output[i] = ((PowerCtrl_Info.Torque[i] / CURRENT_TO_TORQUE_RATIO) * Decrease);
                 }
             }
-            VAL_LIMIT(PowerCtrl_Info.Output[i], -4000, 4000);//限幅防止跑飞
+            VAL_LIMIT(PowerCtrl_Info.Output[i], -5000, 5000);//限幅防止跑飞
         }
     }
 

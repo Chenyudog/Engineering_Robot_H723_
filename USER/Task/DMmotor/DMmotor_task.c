@@ -393,19 +393,19 @@ void DMcontrol_motor_7(hcan_t* hcan)
     float target_rad,target_torque,target_vel,target_kp,target_kd;
     if(Gripper_mode == Gripper_OPEN)//一键抓取模式,在这里调参
     {
-        target_rad = -3.0f;
-        target_torque = 0.0f;
+        target_rad = 0.0f;
+        target_torque = 1.0f;
         target_vel = 0.0f;
-        target_kp = 1.2f;
-        target_kd = 0.3f;
+        target_kp = 0.0f;
+        target_kd = 0.4f;
     }
     else//关闭
     {
-        target_rad = 3.0f;
-        target_torque = 0.0f;
+        target_rad = 0.0f;
+        target_torque = -1.0f;
         target_vel = 0.0f;
-        target_kp = 1.2f;
-        target_kd = 0.3f;
+        target_kp = 0.0f;
+        target_kd = 0.4f;
     }
 
     smooth_motion_7(hcan, &motor[Motor7], target_rad, target_torque ,target_vel,target_kp,target_kd);

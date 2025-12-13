@@ -79,7 +79,7 @@ void TIM_Set_PWM(TIM_HandleTypeDef *tim_pwmHandle, uint8_t Channel, uint16_t val
 static uint32_t period = 250000;
 static uint32_t pulse = 0;
 static pid_obj_t *imu_temp_pid;
-static pid_config_t imu_temp_config = INIT_PID_CONFIG(68, 2, 0, 40, 150, PID_Integral_Limit);
+static pid_config_t imu_temp_config = INIT_PID_CONFIG(150, 3, 0, 10, 500, PID_Integral_Limit);
 
 /* ----------------------------- IMU_TEMPRETURE ----------------------------- */
 

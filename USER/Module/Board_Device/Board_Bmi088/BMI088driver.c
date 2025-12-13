@@ -16,7 +16,7 @@
 #include "drv_dwt.h"
 #include <math.h>
 
-#define BSP_BMI088_CALI //imu校准模式开关
+//#define BSP_BMI088_CALI //imu校准模式开关
 static const float BMI088_ACCEL_SEN = BMI088_ACCEL_6G_SEN;
 static const float BMI088_GYRO_SEN = BMI088_GYRO_2000_SEN;
 static uint8_t res = 0;

@@ -181,7 +181,7 @@ void remote_to_cmd_sbus(void) {
         cmd_chassis.vw = (vt13_remote_parsed_data_fdb.ch[0] * CHASSIS_VT13_RC_MOVE_RATIO_W / VT13_RC_MAX_VALUE
                           + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
 
-        if (vt13_remote_parsed_data_fdb.mode_sw == 0)
+        if (vt13_remote_parsed_data_fdb.mode_sw == 0)//夹爪控制模式
         {
             Gripper_mode =Gripper_OPEN ;
         }
