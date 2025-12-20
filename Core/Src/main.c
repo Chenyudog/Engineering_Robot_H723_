@@ -134,7 +134,6 @@ int main(void)
     bsp_fdcan_set_baud(&hfdcan1, CAN_CLASS, CAN_BR_1M);
     bsp_fdcan_set_baud(&hfdcan2, CAN_CLASS, CAN_BR_1M);
     bsp_fdcan_set_baud(&hfdcan3, CAN_CLASS, CAN_BR_1M);
-////	bsp_fdcan_set_baud(&hfdcan1, CAN_FD_BRS, CAN_BR_1M);
     bsp_can_init();
     dm_motor_init();
     BSPLogInit();

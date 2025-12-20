@@ -31,8 +31,8 @@
 #include "rls_arm.h"
 #include "Power_task.h"
 
-//#define RLS_POWER_LIMIT//功率限制开关
-#define YAW_CONTROL //yaw轴控制底盘开关
+#define RLS_POWER_LIMIT//功率限制开关
+//#define YAW_CONTROL //yaw轴控制底盘开关
 #define K_power 0.10472f//  rpm -> rad/s
 #define wheel_ratio    0.05207463310219f  //转子转速转换成轮子转速   1/减速比 ≈ 187/3591 =0.052074
 #define K_current 0.001220703125f   //  20 / 16384
@@ -48,7 +48,7 @@ static float Power_Ctrl_Param[5] = {1e-05f, 20.0f, 2.8f, 0.0001f, 500};//RLS拟�
 
 float I_cmd[4];//PID计算出来的要发送的电流
 uint8_t powerOverloadFlag = 0;  //超功率标志位
-float power_max = 25.0f;//便于调试
+float power_max = 35.0f;//便于调试
 float Decrease;  // 功率衰减系数
 
 /*================================= 功率控制相关 ================================= */
@@ -57,7 +57,7 @@ float Decrease;  // 功率衰减系数
 static struct ins_msg ins_data;
 static float target_yaw = 0.0f;
 static pid_obj_t *chassis_yaw_pid;
-static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.35, 0.0, 0.0105, 0.0, 4.3, PID_Trapezoid_Intergral);
+static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.34, 0.0, 0.010, 0.0, 4.3, PID_Trapezoid_Intergral);
 static publisher_t * pub_chassis;
 static subscriber_t* sub_ins;
 
@@ -524,6 +524,7 @@ void ChassisTask_Entry(void const * argument)
     chassis_motor_init();
     bsp_can_init();
     can_filter_init();
+    uint8_t should_update_weights = 0;
 #ifdef YAW_CONTROL
     chassis_yaw_pid = pid_register(&chassis_yaw_config);   /* 注册 PID 实例 */
 #endif
@@ -557,11 +558,11 @@ void ChassisTask_Entry(void const * argument)
         mecanum_calc(&cmd_chassis, motor_target_speed_rad);
 #ifdef RLS_POWER_LIMIT
         static float last_power_timestamp = 0.0f;  // 记录上次RLS更新权重时的时间戳
-        uint8_t should_update_weights = 0;
+        should_update_weights = 0;
         // 通过比较时间戳判断功率数据是否更新
         if (power_update_timestamp != last_power_timestamp)
         {
-            should_update_weights = 1;  // 真实功率数据已更新，需要更新RLS权重
+            should_update_weights = 1;
             last_power_timestamp = power_update_timestamp;
         }
         // 每个周期都执行,但只在功率数据更新和运动时才更新权重系数
