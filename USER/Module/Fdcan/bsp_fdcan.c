@@ -1,6 +1,7 @@
 #include "bsp_fdcan.h"
 #include "dj_motor.h"
 #include "dm_motor_ctrl.h"
+#include "DMmotor_task.h"
 
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
@@ -56,6 +57,7 @@ void bsp_can_init(void)
 {
 
     can_filter_init();
+
     HAL_FDCAN_Start(&hfdcan1);                               //开启FDCAN
     HAL_FDCAN_Start(&hfdcan2);
     HAL_FDCAN_Start(&hfdcan3);
@@ -67,6 +69,7 @@ void bsp_can_init(void)
     HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
     HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
 }
@@ -81,7 +84,7 @@ void bsp_can_init(void)
 void can_filter_init(void)
 {
     FDCAN_FilterTypeDef fdcan_filter1;
-
+    //过滤器1负责FIFO0
     fdcan_filter1.IdType = FDCAN_STANDARD_ID;                       //标准ID
     fdcan_filter1.FilterIndex = 0;                                  //滤波器索引
     fdcan_filter1.FilterType = FDCAN_FILTER_MASK;
@@ -90,7 +93,7 @@ void can_filter_init(void)
     fdcan_filter1.FilterID2 = 0x00;
 
     FDCAN_FilterTypeDef fdcan_filter2;
-
+    //过滤器2负责FIFO1
     fdcan_filter2.IdType = FDCAN_STANDARD_ID;                       //标准ID
     fdcan_filter2.FilterIndex = 0;                                  //滤波器索引
     fdcan_filter2.FilterType = FDCAN_FILTER_MASK;
@@ -102,16 +105,20 @@ void can_filter_init(void)
     //拒绝接收匹配不成功的标准ID和扩展ID,不接受远程帧
     HAL_FDCAN_ConfigGlobalFilter(&hfdcan1,FDCAN_REJECT,FDCAN_REJECT,FDCAN_REJECT_REMOTE,FDCAN_REJECT_REMOTE);
     HAL_FDCAN_ConfigFifoWatermark(&hfdcan1, FDCAN_CFG_RX_FIFO0, 1);
+    HAL_FDCAN_ConfigFifoWatermark(&hfdcan1, FDCAN_CFG_RX_FIFO1, 1);
 
     HAL_FDCAN_ConfigFilter(&hfdcan2,&fdcan_filter1); 		 				  //接收ID2
     //拒绝接收匹配不成功的标准ID和扩展ID,不接受远程帧
     HAL_FDCAN_ConfigGlobalFilter(&hfdcan2,FDCAN_REJECT,FDCAN_REJECT,FDCAN_REJECT_REMOTE,FDCAN_REJECT_REMOTE);
     HAL_FDCAN_ConfigFifoWatermark(&hfdcan2, FDCAN_CFG_RX_FIFO0, 1);
+    HAL_FDCAN_ConfigFifoWatermark(&hfdcan2, FDCAN_CFG_RX_FIFO1, 1);
 
-    HAL_FDCAN_ConfigFilter(&hfdcan3,&fdcan_filter2); 		 				  //接收ID2
+
+    HAL_FDCAN_ConfigFilter(&hfdcan3,&fdcan_filter1); 		 				  //接收ID2
     //拒绝接收匹配不成功的标准ID和扩展ID,不接受远程帧
     HAL_FDCAN_ConfigGlobalFilter(&hfdcan3,FDCAN_REJECT,FDCAN_REJECT,FDCAN_REJECT_REMOTE,FDCAN_REJECT_REMOTE);
     HAL_FDCAN_ConfigFifoWatermark(&hfdcan3, FDCAN_CFG_RX_FIFO1, 1);
+    HAL_FDCAN_ConfigFifoWatermark(&hfdcan3, FDCAN_CFG_RX_FIFO0, 1);
 
 }
 void bsp_fdcan_set_baud(hcan_t *hfdcan, uint8_t mode, uint8_t baud)
@@ -228,7 +235,7 @@ uint8_t fdcanx_send_data(hcan_t *hfdcan, uint16_t id, uint8_t *data, uint32_t le
 * @details:    	接收数据
 ************************************************************************
 **/
-uint8_t fdcanx_receive(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf)
+uint8_t fdcanx_receive_FIFO0(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf)
 {
     FDCAN_RxHeaderTypeDef pRxHeader;
     uint8_t len;
@@ -295,6 +302,7 @@ uint8_t fdcanx_receive_FIFO1(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf)
     return 0;
 }
 
+
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan,uint32_t RxFifo0ITs)
 {
     FDCAN_RxHeaderTypeDef rx_header;
@@ -308,23 +316,24 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan,uint32_t RxFifo0ITs)
         }
         else if (hfdcan == &hfdcan2)
         {
-            fdcan2_rx_callback();
+            fdcan2_process_callback();//234567号电机
         }
-
+        else if (hfdcan == &hfdcan3)
+        {
+            fdcan3_process_callback();//1号电机
+        }
     }
 }
 
 
 void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan,uint32_t RxFifo0ITs)
 {
+    FDCAN_RxHeaderTypeDef rx_header;
+    uint8_t rx_data[8];
     while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO1)) // FIFO不为空,有可能在其他中断时有多帧数据进入
     {
-        if(hfdcan == &hfdcan3)
-        {
-            fdcan3_rx_callback();
-        }
-    }
 
+    }
 }
 
 
@@ -352,7 +361,7 @@ void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorSt
 *               当接收到ID为0时，调用dm4310_fbdata函数更新Motor的反馈数据。
 ************************************************************************
 **/
-void fdcan2_rx_callback(void)
+void fdcan2_process_callback(void)
 {
     uint16_t rec_id;
     uint8_t rx_data[8] = {0};
@@ -367,59 +376,31 @@ void fdcan2_rx_callback(void)
     static float motor6_buf[5] = {0.0f};
     static uint8_t motor6_buf_idx = 0;
 
-    fdcanx_receive(&hfdcan2, &rec_id, rx_data);
+    fdcanx_receive_FIFO0(&hfdcan2, &rec_id, rx_data);//取出接收到的数据帧
     rec_id = (rx_data[0]) & 0x0F;
     switch (rec_id) {
-        case 1: {
-            float raw_pos;
-            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
-            dm_motor_fbdata(&motor[Motor1], rx_data);
-            raw_pos = motor[Motor1].para.pos;
-
-            motor2_buf[motor2_buf_idx] = raw_pos;
-            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor2_buf[i];
-            }
-
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor1].para.pos = sorted_buf[2];
-            if (motor[Motor1].para.pos > 150.0f)
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            else if (motor[Motor1].para.pos < -10.0f)
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            break;
-        }
-
         case 2: {
             float raw_pos;
             motor[Motor2].para.last_pos = motor[Motor2].para.pos;
             dm_motor_fbdata(&motor[Motor2], rx_data);
             raw_pos = motor[Motor2].para.pos;
-            raw_pos /= 2.4f;
+            raw_pos /= 2.4f;//有齿轮比
 
             motor2_buf[motor2_buf_idx] = raw_pos;
             motor2_buf_idx = (motor2_buf_idx + 1) % 5;
 
             float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 5; i++)
+            {
                 sorted_buf[i] = motor2_buf[i];
             }
 
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 4 - i; j++)
+                {
+                    if (sorted_buf[j] > sorted_buf[j + 1])
+                    {
                         float temp = sorted_buf[j];
                         sorted_buf[j] = sorted_buf[j + 1];
                         sorted_buf[j + 1] = temp;
@@ -428,10 +409,14 @@ void fdcan2_rx_callback(void)
             }
 
             motor[Motor2].para.pos = sorted_buf[2];
-            if (motor[Motor2].para.pos > 150.0f)
+            if (motor[Motor2].para.pos > MOTOR_2_MAX_LIMIT*180.0f/PI)
+            {
                 motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-            else if (motor[Motor2].para.pos < -10.0f)
+            }
+            else if (motor[Motor2].para.pos < MOTOR_2_MIN_LIMIT*180.0f/PI)
+            {
                 motor[Motor2].para.pos = motor[Motor2].para.last_pos;
+            }
             break;
         }
 
@@ -459,9 +444,9 @@ void fdcan2_rx_callback(void)
             }
 
             motor[Motor3].para.pos = sorted_buf[2];
-            if (motor[Motor3].para.pos > 10.0f)
+            if (motor[Motor3].para.pos > MOTOR_3_MAX_LIMIT*180.0f/PI)
                 motor[Motor3].para.pos = motor[Motor3].para.last_pos;
-            else if (motor[Motor3].para.pos < -150.0f)
+            else if (motor[Motor3].para.pos < MOTOR_3_MIN_LIMIT*180.0f/PI)
                 motor[Motor3].para.pos = motor[Motor3].para.last_pos;
             break;
         }
@@ -490,9 +475,9 @@ void fdcan2_rx_callback(void)
             }
 
             motor[Motor4].para.pos = sorted_buf[2];
-            if (motor[Motor4].para.pos > 180.0f)
+            if (motor[Motor4].para.pos > MOTOR_4_MAX_LIMIT*180.0f/PI)
                 motor[Motor4].para.pos = motor[Motor4].para.last_pos;
-            else if (motor[Motor4].para.pos < -180.0f)
+            else if (motor[Motor4].para.pos < MOTOR_4_MIN_LIMIT*180.0f/PI)
                 motor[Motor4].para.pos = motor[Motor4].para.last_pos;
             break;
         }
@@ -522,9 +507,9 @@ void fdcan2_rx_callback(void)
             }
 
             motor[Motor5].para.pos = sorted_buf[2];
-            if (motor[Motor5].para.pos > 120.0f)
+            if (motor[Motor5].para.pos > MOTOR_5_MAX_LIMIT*180.0f/PI)
                 motor[Motor5].para.pos = motor[Motor5].para.last_pos;
-            else if (motor[Motor5].para.pos < -120.0f)
+            else if (motor[Motor5].para.pos < MOTOR_5_MIN_LIMIT*180.0f/PI)
                 motor[Motor5].para.pos = motor[Motor5].para.last_pos;
             break;
         }
@@ -554,41 +539,15 @@ void fdcan2_rx_callback(void)
             }
 
             motor[Motor6].para.pos = sorted_buf[2];
-            if (motor[Motor6].para.pos > 200.0f)
+            if (motor[Motor6].para.pos > PI)
                 motor[Motor6].para.pos = motor[Motor6].para.last_pos;
-            else if (motor[Motor6].para.pos < -200.0f)
+            else if (motor[Motor6].para.pos < -PI)
                 motor[Motor6].para.pos = motor[Motor6].para.last_pos;
             break;
         }
 
-        case 7: {
-            float raw_pos;
-            motor[Motor7].para.last_pos = motor[Motor7].para.pos;
+        case 7: {//夹爪注重于力矩控制故不需要位置控制
             dm_motor_fbdata(&motor[Motor7], rx_data);
-            raw_pos = motor[Motor7].para.pos;
-
-            motor6_buf[motor6_buf_idx] = raw_pos;
-            motor6_buf_idx = (motor6_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor6_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor7].para.pos = sorted_buf[2];
-            if (motor[Motor7].para.pos > 200.0f)
-                motor[Motor7].para.pos = motor[Motor7].para.last_pos;
-            else if (motor[Motor6].para.pos < -200.0f)
-                motor[Motor7].para.pos = motor[Motor7].para.last_pos;
             break;
         }
         default:
@@ -597,7 +556,7 @@ void fdcan2_rx_callback(void)
 }
 
 
-void fdcan3_rx_callback(void)
+void fdcan3_process_callback(void)
 {
     uint16_t rec_id;
     uint8_t rx_data[8] = {0};
@@ -605,38 +564,39 @@ void fdcan3_rx_callback(void)
     static float motor1_buf[5] = {0.0f};
     static uint8_t motor1_buf_idx = 0;
 
-    fdcanx_receive_FIFO1(&hfdcan3, &rec_id, rx_data);
+    fdcanx_receive_FIFO0(&hfdcan3, &rec_id, rx_data);
     rec_id = (rx_data[0]) & 0x0F;
+    if(rec_id == 1)//处理一号电机数据
+    {
+        float raw_pos;
+        motor[Motor1].para.last_pos = motor[Motor1].para.pos;
+        dm_motor_fbdata(&motor[Motor1], rx_data);
+        raw_pos = motor[Motor1].para.pos;
 
-            float raw_pos;
-            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
-            dm_motor_fbdata(&motor[Motor1], rx_data);
-            raw_pos = motor[Motor1].para.pos;
+        motor1_buf[motor1_buf_idx] = raw_pos;
+        motor1_buf_idx = (motor1_buf_idx + 1) % 5;
 
-            motor1_buf[motor1_buf_idx] = raw_pos;
-            motor1_buf_idx = (motor1_buf_idx + 1) % 5;
+        float sorted_buf[5];
+        for (int i = 0; i < 5; i++) {
+            sorted_buf[i] = motor1_buf[i];
+        }
 
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor1_buf[i];
-            }
-
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4 - i; j++) {
+                if (sorted_buf[j] > sorted_buf[j + 1]) {
+                    float temp = sorted_buf[j];
+                    sorted_buf[j] = sorted_buf[j + 1];
+                    sorted_buf[j + 1] = temp;
                 }
             }
+        }
 
-            motor[Motor1].para.pos = sorted_buf[2];
-            if (motor[Motor1].para.pos > 174.0f)
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            else if (motor[Motor1].para.pos < -174.0f)
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-
+        motor[Motor1].para.pos = sorted_buf[2];
+        if (motor[Motor1].para.pos > MOTOR_1_MAX_LIMIT * 180.0f / PI)
+            motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+        else if (motor[Motor1].para.pos < MOTOR_1_MIN_LIMIT * 180.0f / PI)
+            motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+    }
 }
 
 

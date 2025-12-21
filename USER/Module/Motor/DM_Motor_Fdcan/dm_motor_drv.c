@@ -145,7 +145,7 @@ void dm_motor_clear_err(hcan_t* hcan, motor_t *motor)
 **/
 void dm_motor_fbdata(motor_t *motor, uint8_t *rx_data)  //:TODO
 {
-	//motor->para.id = (rx_data[0])&0x0F;   //关闭，避免错误修改
+	//motor->para.id = (rx_data[0])&0x0F;   //关闭，避免错误修改,但理论上错不了
 	motor->para.state = (rx_data[0])>>4;
 	motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
 	motor->para.v_int=(rx_data[3]<<4)|(rx_data[4]>>4);
