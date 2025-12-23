@@ -54,6 +54,7 @@ typedef struct
     {
         float Torque2_Sum;
         float Omiga2_Sum;
+        float Omiga_Sum;
         float Power_Sum;
         float Err_Sum;
         float power_useful_Sum;
