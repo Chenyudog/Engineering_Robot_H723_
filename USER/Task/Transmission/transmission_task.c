@@ -19,6 +19,7 @@
 #include "msg_freertos.h"
 #include "robot_task.h"
 #include "usbd_cdc_if.h"
+#include "dm_motor_drv.h"
 
 #define MAX_USB_BUF_LEN     42
 #define HEAD_BUF_LEN        4       // 帧头长度（0-3字节:帧头0xFF、地址、命名ID、数据长度）
@@ -29,13 +30,17 @@
 #define USB_CMD_CHASSIS_DATA_LEN    12      // 数据部分长度（3个int32_t）
 #define CMD_CHASSIS_BUF_LEN         18      // 总长度：4(帧头)+12(数据)+2(校验)
 
+#define USB_ARM_JOINTS_DATA_LEN    24      // 数据部分长度（6个int32_t）
+#define ARM_JOINTS_BUF_LEN         30      // 总长度：4(帧头)+24(数据)+2(校验)
+
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static struct ins_msg transmission_subscribe_ins_data;
-static struct cmd_chassis_msg transmission_subscribe_cmd_chassis_data;
 static struct cmd_chassis_msg receive_pc_cmd_chassis_data;
+static struct pc_cmd_arm_msg receive_pc_cmd_arm_msg_data;
 
-static publisher_t *pc_cmd_topic_publish;
+static publisher_t *pc_cmd_arm_topic_publish;
+static publisher_t *pc_cmd_chassis_topic_publish;
 static subscriber_t *subscribe_ins_topic;
 static subscriber_t *subscribe_cmd_chassis_topic;
 
@@ -48,15 +53,17 @@ extern volatile uint8_t USB_Data_Ready_Flag;
 
 static uint8_t Rx_data[64];
 static uint8_t Data_len = 0;
-static uint32_t num = 0;
+static uint32_t num_count = 0;
 static uint32_t sum_check = 0;
 static uint32_t addr_check = 0;
 
 
 static void transmission_topic_publish_init(void);
 static void transmission_topic_subscribe_init(void);
-static void transmission_topic_publish_push(void);
+static void pc_cmd_chassis_transmission_topic_publish_push(void);
 static void transmission_topic_subscribe_pull(void);
+static void pc_cmd_arm_transmission_topic_publish_push(void);
+
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 static uint32_t transmission_task_dwt = 0;   // 毫秒监测
@@ -69,6 +76,7 @@ void InsDataPack(void);
 void CmdChassisDataPack(void);
 void set_data(uint8_t rx_byte);
 void UnpackPCData(void);
+void ArmJointDataPack(void);
 
 /* -------------------------------- 线程入口 ------------------------------- */
 void TransmissionTask_Entry(void const * argument)
@@ -106,14 +114,16 @@ void TransmissionTask_Entry(void const * argument)
             USB_Data_Ready_Flag = 0;
         }
         //发送数据给上位机
-        InsDataPack();
-        vTaskDelay(1);
+        //InsDataPack();
+        //vTaskDelay(1);
         CmdChassisDataPack();
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
+        //vTaskDelay(1);
+        ArmJointDataPack();
         vTaskDelay(1);
     }
 }
@@ -122,7 +132,8 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static void transmission_topic_publish_init(void)
 {
-        pc_cmd_topic_publish = pub_register("pc_cmd",sizeof(struct cmd_chassis_msg));
+    pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis",sizeof(struct cmd_chassis_msg));
+    pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm",sizeof(struct pc_cmd_arm_msg));
 }
 
 static void transmission_topic_subscribe_init(void)
@@ -131,15 +142,19 @@ static void transmission_topic_subscribe_init(void)
         subscribe_cmd_chassis_topic = sub_register("cmd_ch_pub", sizeof(struct cmd_chassis_msg));
 }
 
-static void transmission_topic_publish_push(void)
+static void pc_cmd_chassis_transmission_topic_publish_push(void)
 {
-        pub_push_msg(pc_cmd_topic_publish,&receive_pc_cmd_chassis_data);
+        pub_push_msg(pc_cmd_chassis_topic_publish,&receive_pc_cmd_chassis_data);
+}
+
+static void pc_cmd_arm_transmission_topic_publish_push(void)
+{
+        pub_push_msg(pc_cmd_arm_topic_publish,&receive_pc_cmd_arm_msg_data);
 }
 
 static void transmission_topic_subscribe_pull(void)
 {
         sub_get_msg(subscribe_ins_topic, &transmission_subscribe_ins_data);
-        sub_get_msg(subscribe_cmd_chassis_topic, &transmission_subscribe_cmd_chassis_data);
 }
 
 
@@ -160,8 +175,39 @@ void uppack_pc_cmd_chassis_data(void)
                                              (Rx_data[25] << 8) |  // byte2占 23-16位
                                              (Rx_data[26] << 16)  |  // byte1占 15-8位
                                              (Rx_data[27] << 24)) / 10000.0f;    // byte0占 7-0位
-    transmission_topic_publish_push();
+    pc_cmd_chassis_transmission_topic_publish_push();
 }
+
+void uppack_pc_cmd_arm_data(void)
+{
+    //  /10000.0f与上位机约定好，因为传输float麻烦
+    receive_pc_cmd_arm_msg_data.joint1_pos = (float)((Rx_data[4] << 0) |  // byte3占 31-24位
+                                             (Rx_data[5] << 8) |  // byte2占 23-16位
+                                             (Rx_data[6] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[7] << 24)) /10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_arm_msg_data.joint2_pos = (float)((Rx_data[8] << 0) |  // byte3占 31-24位
+                                             (Rx_data[9] << 8) |  // byte2占 23-16位
+                                             (Rx_data[10] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[11] << 24)) /10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_arm_msg_data.joint3_pos = (float)((Rx_data[12] << 0) |  // byte3占 31-24位
+                                             (Rx_data[13] << 8) |  // byte2占 23-16位
+                                             (Rx_data[14] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[15] << 24))/10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_arm_msg_data.joint4_pos = (float)((Rx_data[16] << 0) |  // byte3占 31-24位
+                                             (Rx_data[17] << 8) |  // byte2占 23-16位
+                                             (Rx_data[18] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[19] << 24)) /10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_arm_msg_data.joint5_pos = (float)((Rx_data[20] << 0) |  // byte3占 31-24位
+                                             (Rx_data[21] << 8) |  // byte2占 23-16位
+                                             (Rx_data[22] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[23] << 24)) /10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_arm_msg_data.joint6_pos = (float)((Rx_data[24] << 0) |  // byte3占 31-24位
+                                             (Rx_data[25] << 8) |  // byte2占 23-16位
+                                             (Rx_data[26] << 16)  |  // byte1占 15-8位
+                                             (Rx_data[27] << 24)) /10000.0f;    // byte0占 7-0位
+    pc_cmd_arm_transmission_topic_publish_push();
+}
+
 void InsDataPack()
 {
     // 初始化缓冲区，避免脏数据
@@ -224,9 +270,9 @@ void CmdChassisDataPack(void)
     usb_txbuffer[3] = USB_CMD_CHASSIS_DATA_LEN;  // 数据长度
 
     const float scale = 10000.0f;
-    int32_t cmd_chassis_vx = (int32_t)(transmission_subscribe_cmd_chassis_data.vx * scale);
-    int32_t cmd_chassis_vy = (int32_t)(transmission_subscribe_cmd_chassis_data.vy * scale);
-    int32_t cmd_chassis_vw = (int32_t)(transmission_subscribe_cmd_chassis_data.vw * scale);
+    int32_t cmd_chassis_vx = (int32_t)(receive_pc_cmd_chassis_data.vx * scale);
+    int32_t cmd_chassis_vy = (int32_t)(receive_pc_cmd_chassis_data.vy * scale);
+    int32_t cmd_chassis_vw = (int32_t)(receive_pc_cmd_chassis_data.vw * scale);
 
     uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始
     memcpy(&usb_txbuffer[offset], &cmd_chassis_vx, sizeof(int32_t)); offset += sizeof(int32_t);
@@ -257,9 +303,9 @@ void UnpackPCData(void)
     addr_check = 0;
     memset(Rx_data, 0, sizeof(Rx_data));
 
-    for (num = 0; num < USB_Received_Len; num++)
+    for (num_count = 0; num_count < USB_Received_Len; num_count++)
     {
-        uint8_t curr_byte = USB_Received_Data[num];
+        uint8_t curr_byte = USB_Received_Data[num_count];
 
         if (curr_byte == 0xFF && rx_data_state == 0) // 等待帧头
         {
@@ -327,7 +373,11 @@ void UnpackPCData(void)
                 addr_check = 0;
                 if(Rx_data[2] == 0x12)
                 {
-                        uppack_pc_cmd_chassis_data();
+                    uppack_pc_cmd_chassis_data();
+                }
+                if(Rx_data[2] == 0x20)
+                {
+                    uppack_pc_cmd_arm_data();
                 }
 
 
@@ -367,4 +417,52 @@ void set_data(uint8_t rx_byte)
         addr_check = 0;
     }
 }
+
+extern motor_t motor[num];
+
+void ArmJointDataPack(void)
+{
+    // 初始化缓冲区，避免脏数据
+    memset(usb_txbuffer, 0, MAX_USB_BUF_LEN);
+
+    // 填充帧头信息
+    usb_txbuffer[0] = 0xFF;  // 帧头
+    usb_txbuffer[1] = 0x05;  // 地址
+    usb_txbuffer[2] = 0x20;  // 命名ID //!!!这里要改
+    usb_txbuffer[3] = USB_ARM_JOINTS_DATA_LEN;  // 数据长度
+
+    const float scale = 10000.0f;
+    int32_t joint1_positiion = (int32_t)(motor[0].para.pos * scale);
+    int32_t joint2_positiion = (int32_t)(motor[1].para.pos * scale);
+    int32_t joint3_positiion = (int32_t)(motor[2].para.pos * scale);
+    int32_t joint4_positiion = (int32_t)(motor[3].para.pos * scale);
+    int32_t joint5_positiion = (int32_t)(motor[4].para.pos * scale);
+    int32_t joint6_positiion = (int32_t)(motor[5].para.pos * scale);
+
+
+    uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始
+    memcpy(&usb_txbuffer[offset], &joint1_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint2_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint3_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint4_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint5_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint6_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+
+    // 计算校验码（覆盖0到最后一个数据字节）
+    sum_check = 0;
+    addr_check = 0;
+    for (int i = 0; i < (HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN); i++) {
+        sum_check += usb_txbuffer[i];
+        addr_check += sum_check;
+    }
+    usb_txbuffer[offset++] = sum_check & 0xFF;
+    usb_txbuffer[offset] = addr_check & 0xFF;
+
+    // 发送数据，检查返回值确保发送成功
+    if (CDC_Transmit_HS(usb_txbuffer, ARM_JOINTS_BUF_LEN) != USBD_OK) {
+
+    }
+}
+
+
 /* -------------------------------- 线程间通讯数据包相关 ------------------------------- */

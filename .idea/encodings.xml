@@ -8,6 +8,7 @@
     <file url="file://$PROJECT_DIR$/USER/Module/Bmi088/BMI088driver.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/DM_Motor_Fdcan/dm_motor_ctrl.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/DM_Motor_Fdcan/dm_motor_drv.h" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/USER/Module/Motor/DM_Motor_Fdcan/dm_motor_ctrl.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/Referee_System/referee_system.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/can/bsp_fdcan.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Task/Ins/ins_task.c" charset="GBK" />

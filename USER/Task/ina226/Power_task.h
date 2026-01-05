@@ -16,7 +16,7 @@
 #define INA226_CONFIG_DEFAULT   0x0727   //对照文件配置   //0x0327：平均64次 1.1ms 1.1ms 连续测分流和总线
 
 // 校准寄存器
-#define INA226_CALIB_DEFAULT    0x1400   //对照文件配置    //0x0400 A_LSB取1mA  //就是CAL转为十六进制
+#define INA226_CALIB_DEFAULT    0x1400   //对照文件配置    //0x0400 A_LSB取1mA  //这个宏定义就是CAL转为十六进制
 
 
 // ************************** INA226 I2C地址配置 **************************

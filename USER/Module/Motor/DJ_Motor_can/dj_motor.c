@@ -102,6 +102,7 @@ void dji_motor_enable(dji_motor_object_t *motor)
 }
 
 extern uint8_t powerOverloadFlag;  //超功率标志位
+int16_t aaaa;
 // 运算所有电机实例的控制器,发送控制报文
 void dji_motor_control()
 {
@@ -125,6 +126,7 @@ void dji_motor_control()
         else
         {
             motor_current_set = motor->control(measure); // 调用对接的电机控制器计算
+            aaaa = motor_current_set;
         }
         LIMIT_MIN_MAX(motor_current_set, -6000, 6000);//限幅
         // 合并报文

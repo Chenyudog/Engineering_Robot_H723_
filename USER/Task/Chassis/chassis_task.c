@@ -31,7 +31,7 @@
 #include "rls_arm.h"
 #include "Power_task.h"
 
-#define RLS_POWER_LIMIT//功率限制开关
+//#define RLS_POWER_LIMIT//功率限制开关
 //#define YAW_CONTROL //yaw轴控制底盘开关
 #define K_power 0.10472f//  rpm -> rad/s
 #define wheel_ratio    0.05207463310219f  //转子转速转换成轮子转速   1/减速比 ≈ 187/3591 =0.052074
