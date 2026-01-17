@@ -104,6 +104,7 @@ void dji_motor_enable(dji_motor_object_t *motor)
 extern uint8_t powerOverloadFlag;  //超功率标志位
 int16_t aaaa;
 // 运算所有电机实例的控制器,发送控制报文
+
 void dji_motor_control()
 {
     dji_motor_object_t *motor;
@@ -111,7 +112,6 @@ void dji_motor_control()
     int16_t motor_current_set; // 电机控制器计算得到的控制参数
     uint8_t id;  // 1~4 用于装填多电机CAN控制报文
     uint8_t data_buf[8];  // 用于多电机模式下合并一帧CAN报文
-
     // 遍历所有电机实例,运行控制算法并填入报文
     // 遍历所有电机实例,运行控制算法并填入报文
     for (size_t i = 0; i < idx; ++i)

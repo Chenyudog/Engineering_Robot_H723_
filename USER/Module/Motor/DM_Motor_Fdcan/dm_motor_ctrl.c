@@ -44,7 +44,7 @@ void dm_motor_init(void)
     motor[Motor2].ctrl.kp_set = 0.5f;
     motor[Motor2].ctrl.kd_set = 0.1f;
     motor[Motor2].tmp.PMAX = 12.5f;
-    motor[Motor2].tmp.VMAX = 30.0f;
+    motor[Motor2].tmp.VMAX = 25.0f;
 
     // 初始化电机3
     motor[Motor3].id = 0x03;
@@ -55,8 +55,8 @@ void dm_motor_init(void)
     motor[Motor3].ctrl.pos_set = 0.0f;
     motor[Motor3].ctrl.kp_set = 0.5f;
     motor[Motor3].ctrl.kd_set = 0.1f;
-    motor[Motor3].tmp.PMAX = 12.5f;
-    motor[Motor3].tmp.VMAX = 30.0f;
+    motor[Motor3].tmp.PMAX = 12.566f;
+    motor[Motor3].tmp.VMAX = 20.0f;
 
     // 初始化电机4
     motor[Motor4].id = 0x04;
@@ -80,7 +80,7 @@ void dm_motor_init(void)
     motor[Motor5].ctrl.kp_set = 0.5f;
     motor[Motor5].ctrl.kd_set = 0.1f;
     motor[Motor5].tmp.PMAX = 12.5f;
-    motor[Motor5].tmp.VMAX = 30.0f;
+    motor[Motor5].tmp.VMAX = 10.0f;
 
     // 初始化电机6
     motor[Motor6].id = 0x06;
