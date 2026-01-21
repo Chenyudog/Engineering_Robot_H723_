@@ -31,8 +31,8 @@
 #include "rls_arm.h"
 #include "Power_task.h"
 
-//#define RLS_POWER_LIMIT//功率限制开关
-//#define YAW_CONTROL //yaw轴控制底盘开关
+#define RLS_POWER_LIMIT//功率限制开关
+#define YAW_CONTROL //yaw轴控制底盘开关
 #define K_power 0.10472f//  rpm -> rad/s
 #define wheel_ratio    0.05207463310219f  //转子转速转换成轮子转速   1/减速比 ≈ 187/3591 =0.052074
 #define K_current 0.001220703125f   //  20 / 16384
@@ -44,7 +44,7 @@
 
 PowerCtrl_Typedef PowerCtrl_Info;
 RLS_Info_TypeDef RLS_Power_Info;  // RLS滤波器实例，用于功率模型参数辨识
-static float Power_Ctrl_Param[5] = {0.22f, 1.2f, 2.78f, 0.0001f, 500};//RLS拟合初始化参数
+static float Power_Ctrl_Param[5] = {0.22f, 1.2f, 3.1f, 0.0001f, 500};//RLS拟合初始化参数
 
 float I_cmd[4];//PID计算出来的要发送的电流
 uint8_t powerOverloadFlag = 0;  //超功率标志位
@@ -57,7 +57,7 @@ float Decrease;  // 功率衰减系数
 static struct ins_msg ins_data;
 static float target_yaw = 0.0f;
 static pid_obj_t *chassis_yaw_pid;
-static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.34, 0.0, 0.010, 0.0, 4.3, PID_Trapezoid_Intergral);
+static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.45, 0.0, 0.012, 0.0, 4.3, PID_Trapezoid_Intergral);
 static publisher_t * pub_chassis;
 static subscriber_t* sub_ins;
 
@@ -327,7 +327,7 @@ void rls_power_limit(uint8_t update_weights)
 {
     dji_motor_object_t *motor;       // 电机对象指针,用于获取电机信息
     dji_motor_measure_t measure;     // 电机测量数据结构体（包含转速等信息）
-    PowerCtrl_Info.Power_Max = power_max * 0.75f ;//便于调试   //*0.8,确保安全
+    PowerCtrl_Info.Power_Max = power_max * 0.7f ;//便于调试   //*0.7,确保安全
     //PowerCtrl_Info.Power_Max = referee_fdb.robot_status.chassis_power_limit;
 /*-------------------------更新RLS拟合部分--------------------------*/
     // 遍历4个底盘电机，计算单电机参数并累积总和
@@ -389,8 +389,8 @@ void rls_power_limit(uint8_t update_weights)
     {
         // 更新RLS滤波器权重参数
         RLS_Update(&RLS_Power_Info);
-        PowerCtrl_Info.Param.K1 = fmaxf(RLS_Power_Info.Data.W[0], 1e-5f);
-        PowerCtrl_Info.Param.K2 = fmaxf(fminf(RLS_Power_Info.Data.W[1],50.0f), 1e-5f);
+        PowerCtrl_Info.Param.K1 = fmaxf(RLS_Power_Info.Data.W[0], 1e-3f);
+        PowerCtrl_Info.Param.K2 = fmaxf(fminf(RLS_Power_Info.Data.W[1],20.0f), 1e-3f);
         // 使用新参数重新计算总功率预测
         PowerCtrl_Info.Sum.Power_Sum =PowerCtrl_Info.Param.K1 * PowerCtrl_Info.Sum.Omiga_Sum +
                                       PowerCtrl_Info.Param.K2 * PowerCtrl_Info.Sum.Torque2_Sum + PowerCtrl_Info.Param.K3 + PowerCtrl_Info.Sum.power_useful_Sum;

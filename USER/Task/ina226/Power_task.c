@@ -37,7 +37,7 @@ void PowerTask_Entry(void const * argument)
         power_task_dt = dwt_get_delta(&power_task_dwt);
     /* -------------------------------- 调试监测线程调度 --------------------------------- */
         INA226_UpdateData();//更新功率
-        reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
+//        reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
         vTaskDelay(1);
     }
 }
@@ -150,32 +150,32 @@ uint16_t INA226_ReadRegister(uint8_t reg_addr) {
  */
 void INA226_UpdateData(void) {
     uint16_t raw_data;
-    int16_t signed_data;
+//    int16_t signed_data;
 
     // 读取总线电压（无符号）
-    raw_data = INA226_ReadRegister(INA226_REG_BUS_V);
-    if (raw_data != 0xFFFF) {
-        // 总线电压 = 原始值 * 1.25mV → 转换为V（除以1000）
-        ina226_bus_voltage = (float)raw_data * INA226_BUS_V_LSB / 1000.0f;
-    }
-    dwt_delay_us(1);
+//    raw_data = INA226_ReadRegister(INA226_REG_BUS_V);
+//    if (raw_data != 0xFFFF) {
+//        // 总线电压 = 原始值 * 1.25mV → 转换为V（除以1000）
+//        ina226_bus_voltage = (float)raw_data * INA226_BUS_V_LSB / 1000.0f;
+//    }
+//    dwt_delay_us(1);
 
 
     // 读取分流电压（有符号）
-    raw_data = INA226_ReadRegister(INA226_REG_SHUNT_V);
-    if (raw_data != 0xFFFF) {
-        signed_data = (int16_t)raw_data;  // 转换为有符号数（补码）
-        // 分流电压 = 原始值 * 2.5uV → 转换为mV（除以1000）
-        ina226_shunt_voltage = (float)signed_data * INA226_SHUNT_V_LSB / 1000.0f;
-    }
-    dwt_delay_us(1);
+//    raw_data = INA226_ReadRegister(INA226_REG_SHUNT_V);
+//    if (raw_data != 0xFFFF) {
+//        signed_data = (int16_t)raw_data;  // 转换为有符号数（补码）
+//        // 分流电压 = 原始值 * 2.5uV → 转换为mV（除以1000）
+//        ina226_shunt_voltage = (float)signed_data * INA226_SHUNT_V_LSB / 1000.0f;
+//    }
+//    dwt_delay_us(1);
 
     // 读取电流（有符号，依赖校准值）
-    raw_data = INA226_ReadRegister(INA226_REG_CURRENT);
-    if (raw_data != 0xFFFF) {
-        signed_data = (int16_t)raw_data;
-        ina226_current = (float)signed_data * INA226_CURRENT_LSB;
-    }
+//    raw_data = INA226_ReadRegister(INA226_REG_CURRENT);
+//    if (raw_data != 0xFFFF) {
+//        signed_data = (int16_t)raw_data;
+//        ina226_current = (float)signed_data * INA226_CURRENT_LSB;
+//    }
 
     // 读取功率（无符号，依赖校准值）
     raw_data = INA226_ReadRegister(INA226_REG_POWER);
