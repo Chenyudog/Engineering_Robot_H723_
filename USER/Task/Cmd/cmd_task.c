@@ -143,7 +143,7 @@ void CmdTask_Entry(void const * argument)
  */
 static void cmd_sub_init(void)
 {
-    pc_cmd = sub_register("pc_cmd", sizeof(struct cmd_chassis_msg));
+    pc_cmd = sub_register("pc_cmd_chassis_pub", sizeof(struct cmd_chassis_msg));
 }
 //
 ///**
@@ -201,7 +201,7 @@ void remote_to_cmd_sbus(void) {
         fn_2_last_state = vt13_remote_parsed_data_fdb.fn_2;
     } else {
         // 原SBUS遥控器数据（保持原有逻辑）
-        if(sbus_data_fdb.sw4 == RC_DN)
+        if(sbus_data_fdb.sw4 == RC_DN)//导航模式
         {
             cmd_chassis.vx = pc_cmd_data.vx;
             cmd_chassis.vy = pc_cmd_data.vy;

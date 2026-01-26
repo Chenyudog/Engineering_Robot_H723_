@@ -99,7 +99,7 @@ extern FDCAN_HandleTypeDef hfdcan3;
 #define MAX_CHASSIS_VY_SPEED_LOW 5
 
 /* 底盘旋转最大速度，单位是rad/s */
-#define MAX_CHASSIS_VW_SPEED 2.5f
+#define MAX_CHASSIS_VW_SPEED 3.0f
 
 /* --------------------------------- 底盘单个电机PID参数 -------------------------------- */
 /* 电机速度环（实际是C620的电流环）（电流值范围：-16380~0~16380）（-20A~0A~20A） */

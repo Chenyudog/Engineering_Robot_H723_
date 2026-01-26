@@ -6,6 +6,8 @@
 #define CTRBOARD_H7_ALL_TRANSMISSION_TASK_H
 
 
+#include <stdint.h>
+
 struct pc_cmd_arm_msg
 {
     float joint1_pos;
@@ -14,6 +16,8 @@ struct pc_cmd_arm_msg
     float joint4_pos;
     float joint5_pos;
     float joint6_pos;
+    uint8_t auto_state;
+    uint8_t gripper_ctrl;
 };
 
 #endif //CTRBOARD_H7_ALL_TRANSMISSION_TASK_H

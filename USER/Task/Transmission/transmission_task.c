@@ -21,17 +21,18 @@
 #include "usbd_cdc_if.h"
 #include "dm_motor_drv.h"
 
-#define MAX_USB_BUF_LEN     42
+#define MAX_USB_BUF_LEN     60
 #define HEAD_BUF_LEN        4       // 帧头长度（0-3字节:帧头0xFF、地址、命名ID、数据长度）
+#define CRC_BUF_LEN         2       // 帧头长度（0-3字节:帧头0xFF、地址、命名ID、数据长度）
 
 #define USB_INS_DATA_LEN    36      // 数据部分长度（9个int32_t）
-#define INS_BUF_LEN         42      // 总长度：4(帧头)+36(数据)+2(校验)
+#define INS_BUF_LEN         (USB_INS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+36(数据)+2(校验)
 
 #define USB_CMD_CHASSIS_DATA_LEN    12      // 数据部分长度（3个int32_t）
-#define CMD_CHASSIS_BUF_LEN         18      // 总长度：4(帧头)+12(数据)+2(校验)
+#define CMD_CHASSIS_BUF_LEN         (USB_CMD_CHASSIS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+12(数据)+2(校验)
 
-#define USB_ARM_JOINTS_DATA_LEN    24      // 数据部分长度（6个int32_t）
-#define ARM_JOINTS_BUF_LEN         30      // 总长度：4(帧头)+24(数据)+2(校验)
+#define USB_ARM_JOINTS_DATA_LEN    50      // 数据部分长度（12个int32_t+2个uint8_t）
+#define ARM_JOINTS_BUF_LEN         (USB_ARM_JOINTS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+49(数据)+2(校验)
 
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
@@ -115,15 +116,13 @@ void TransmissionTask_Entry(void const * argument)
         }
         //发送数据给上位机
         //InsDataPack();
-        //vTaskDelay(1);
-        CmdChassisDataPack();
+        vTaskDelay(1);
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-        //vTaskDelay(1);
-        ArmJointDataPack();
+        ArmJointDataPack();//发给上位机
         vTaskDelay(1);
     }
 }
@@ -132,8 +131,8 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static void transmission_topic_publish_init(void)
 {
-    pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis",sizeof(struct cmd_chassis_msg));
-    pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm",sizeof(struct pc_cmd_arm_msg));
+    pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis_pub",sizeof(struct cmd_chassis_msg));
+    pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
 }
 
 static void transmission_topic_subscribe_init(void)
@@ -205,6 +204,8 @@ void uppack_pc_cmd_arm_data(void)
                                              (Rx_data[25] << 8) |  // byte2占 23-16位
                                              (Rx_data[26] << 16)  |  // byte1占 15-8位
                                              (Rx_data[27] << 24)) /10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_arm_msg_data.gripper_ctrl = (Rx_data[28] << 0) ;
+    receive_pc_cmd_arm_msg_data.auto_state = (Rx_data[29] << 0);
     pc_cmd_arm_transmission_topic_publish_push();
 }
 
@@ -371,11 +372,12 @@ void UnpackPCData(void)
                 Data_len = 0;
                 sum_check = 0;
                 addr_check = 0;
+                //在此处添加要从上位机接收的id以及解包函数
                 if(Rx_data[2] == 0x12)
                 {
                     uppack_pc_cmd_chassis_data();
                 }
-                if(Rx_data[2] == 0x20)
+                if(Rx_data[2] == 0x21)
                 {
                     uppack_pc_cmd_arm_data();
                 }
@@ -419,6 +421,8 @@ void set_data(uint8_t rx_byte)
 }
 
 extern motor_t motor[num];
+int8_t gripper_state= 1;
+int8_t auto_state= 1;
 
 void ArmJointDataPack(void)
 {
@@ -428,7 +432,7 @@ void ArmJointDataPack(void)
     // 填充帧头信息
     usb_txbuffer[0] = 0xFF;  // 帧头
     usb_txbuffer[1] = 0x05;  // 地址
-    usb_txbuffer[2] = 0x20;  // 命名ID //!!!这里要改
+    usb_txbuffer[2] = 0x20;  // 命名ID
     usb_txbuffer[3] = USB_ARM_JOINTS_DATA_LEN;  // 数据长度
 
     const float scale = 10000.0f;
@@ -439,6 +443,30 @@ void ArmJointDataPack(void)
     int32_t joint5_positiion = (int32_t)(motor[4].para.pos * scale);
     int32_t joint6_positiion = (int32_t)(motor[5].para.pos * scale);
 
+    int32_t joint1_velocity = (int32_t)(motor[0].para.pos * scale);
+    int32_t joint2_velocity = (int32_t)(motor[1].para.pos * scale);
+    int32_t joint3_velocity = (int32_t)(motor[2].para.pos * scale);
+    int32_t joint4_velocity = (int32_t)(motor[3].para.pos * scale);
+    int32_t joint5_velocity = (int32_t)(motor[4].para.pos * scale);
+    int32_t joint6_velocity = (int32_t)(motor[5].para.pos * scale);
+
+//    int32_t joint1_positiion = 10000;
+//    int32_t joint2_positiion = 20000;
+//    int32_t joint3_positiion =30000;
+//    int32_t joint4_positiion =40000;
+//    int32_t joint5_positiion =50000;
+//    int32_t joint6_positiion =60000;
+//
+//    int32_t joint1_velocity = 70000;
+//    int32_t joint2_velocity = 80000;
+//    int32_t joint3_velocity = 90000;
+//    int32_t joint4_velocity = 100000;
+//    int32_t joint5_velocity = 110000 ;
+//    int32_t joint6_velocity = 120000;
+
+    gripper_state=0;
+    auto_state= 0;
+
 
     uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始
     memcpy(&usb_txbuffer[offset], &joint1_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
@@ -447,6 +475,17 @@ void ArmJointDataPack(void)
     memcpy(&usb_txbuffer[offset], &joint4_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
     memcpy(&usb_txbuffer[offset], &joint5_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
     memcpy(&usb_txbuffer[offset], &joint6_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
+
+    memcpy(&usb_txbuffer[offset], &joint1_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint2_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint3_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint4_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint5_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
+    memcpy(&usb_txbuffer[offset], &joint6_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
+
+    memcpy(&usb_txbuffer[offset], &gripper_state, sizeof(int8_t)); offset += sizeof(int8_t);
+    memcpy(&usb_txbuffer[offset], &auto_state, sizeof(int8_t)); offset += sizeof(int8_t);
+
 
     // 计算校验码（覆盖0到最后一个数据字节）
     sum_check = 0;

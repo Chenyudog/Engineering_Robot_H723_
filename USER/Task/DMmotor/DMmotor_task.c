@@ -19,7 +19,10 @@
 #include "drv_dwt.h"
 #include "PID.h"
 #include "cmd_task.h"
+#include "msg_freertos.h"
+#include "transmission_task.h"
 
+static int8_t auto_state_effect_key = 0;///没有想好用什么实现一键开启，所以先用这个变量替代
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
 //static struct chassis_fdb_msg chassis_fdb;
@@ -27,12 +30,13 @@
 //static struct ins_msg ins_data;
 //
 //static publisher_t *pub_chassis;
-//static subscriber_t *sub_cmd,*sub_ins,*sub_trans;
-//
-//static void chassis_pub_init(void);
-//static void chassis_sub_init(void);
-//static void chassis_pub_push(void);
-//static void chassis_sub_pull(void);
+static struct pc_cmd_arm_msg dm_receive_pc_cmd_arm_msg_data = {0};
+static subscriber_t *subscribe_cmd_pc_arm_topic;
+extern sbus_data_t sbus_data_fdb;
+static void arm_pub_init(void);
+static void arm_sub_init(void);
+static void arm_pub_push(void);
+static void arm_sub_pull(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 static uint32_t DMmotor_task_dwt = 0;   // 毫秒监测
@@ -166,8 +170,8 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
-//    chassis_pub_init();
-//    chassis_sub_init();
+    arm_pub_init();
+    arm_sub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     DMmotor_task_dt = dwt_get_delta(&DMmotor_task_dwt);
@@ -181,10 +185,12 @@ void DMmotorTask_Entry(void const * argument)
         DMmotor_task_dt = dwt_get_delta(&DMmotor_task_dwt);
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
-//        chassis_sub_pull();
+        arm_sub_pull();
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
+    if(auto_state_effect_key == 0)//自定义控制模式
+    {
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
             for(uint8_t i=0;i<6;i++){
                 dm_motor_angles[i] = dm_angles[i];
@@ -196,7 +202,19 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
         }
-        DMcontrol_motor_7(&hfdcan2);//夹爪控制//一键夹取功能
+        DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
+    }
+    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
+    {
+        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_receive_pc_cmd_arm_msg_data.joint1_pos);
+        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_receive_pc_cmd_arm_msg_data.joint2_pos);
+        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_receive_pc_cmd_arm_msg_data.joint3_pos);
+        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_receive_pc_cmd_arm_msg_data.joint4_pos);
+        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_receive_pc_cmd_arm_msg_data.joint5_pos);
+        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_receive_pc_cmd_arm_msg_data.joint6_pos);
+        DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制//一键夹取功能
+    }
+
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -208,40 +226,36 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程结束 ------------------------------- */
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-///**
-// * @brief chassis 线程中所有发布者初始化
-// */
-//static void chassis_pub_init(void)
-//{
-//    pub_chassis = pub_register("chassis_fdb",sizeof(struct chassis_fdb_msg));
-//}
-//
-///**
-// * @brief chassis 线程中所有订阅者初始化
-// */
-//static void chassis_sub_init(void)
-//{
-//    sub_cmd = sub_register("chassis_cmd", sizeof(struct chassis_cmd_msg));
-//    sub_trans= sub_register("trans_fdb", sizeof(struct trans_fdb_msg));
-//    sub_ins = sub_register("ins_msg", sizeof(struct ins_msg));
-//}
-//
-///**
-// * @brief chassis 线程中所有发布者推送更新话题
-// */
-//static void chassis_pub_push(void)
-//{
-//    pub_push_msg(pub_chassis,&chassis_fdb);
-//}
-///**
-// * @brief chassis 线程中所有订阅者获取更新话题
-// */
-//static void chassis_sub_pull(void)
-//{
-//    sub_get_msg(sub_cmd, &chassis_cmd);
-//    sub_get_msg(sub_trans, &trans_fdb);
-//    sub_get_msg(sub_ins, &ins_data);
-//}
+/**
+ * @brief chassis 线程中所有发布者初始化
+ */
+static void arm_pub_init(void)
+{
+
+}
+
+/**
+ * @brief chassis 线程中所有订阅者初始化
+ */
+static void arm_sub_init(void)
+{
+    subscribe_cmd_pc_arm_topic = sub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
+}
+
+/**
+ * @brief chassis 线程中所有发布者推送更新话题
+ */
+static void arm_pub_push(void)
+{
+
+}
+/**
+ * @brief chassis 线程中所有订阅者获取更新话题
+ */
+static void arm_sub_pull(void)
+{
+    sub_get_msg(subscribe_cmd_pc_arm_topic, &dm_receive_pc_cmd_arm_msg_data);
+}
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 float clamp_radians(float radians, float min_limit, float max_limit) {
@@ -399,10 +413,10 @@ void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target
     }
 }
 
-void DMcontrol_motor_7(hcan_t* hcan)
+void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl)
 {
     float target_rad,target_torque,target_vel,target_kp,target_kd;
-    if(Gripper_mode == Gripper_OPEN)//一键抓取模式,在这里调参
+    if(Gripper_ctrl == Gripper_OPEN)//一键抓取模式,在这里调参
     {
         target_rad = 0.0f;
         target_torque = 1.5f;

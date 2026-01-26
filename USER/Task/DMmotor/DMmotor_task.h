@@ -8,7 +8,8 @@
 #include "dm_motor_ctrl.h"
 #include "dm_motor_drv.h"
 #include "fdcan.h"
-
+#include "cmd_task.h"
+#include "rc_sbus.h"
 // 转换宏定义
 #define DEG_TO_RAD(x) ((x) * (M_PI / 180.0f)) // 度数转弧度
 #define RAD_TO_DEG(x) ((x) * (180.0f / M_PI)) // 弧度转度数
@@ -77,7 +78,7 @@ void DMcontrol_motor_5(hcan_t* hcan, DMmotorControl* motor_control, float target
 
 void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target_angle);
 
-void DMcontrol_motor_7(hcan_t* hcan);
+void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl);
 
 
 
