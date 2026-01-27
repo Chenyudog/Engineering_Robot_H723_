@@ -434,21 +434,32 @@ void ArmJointDataPack(void)
     usb_txbuffer[1] = 0x05;  // 地址
     usb_txbuffer[2] = 0x20;  // 命名ID
     usb_txbuffer[3] = USB_ARM_JOINTS_DATA_LEN;  // 数据长度
-
+    static int32_t joint1_positiion;
+    static int32_t joint2_positiion;
+    static int32_t joint3_positiion;
+    static int32_t joint4_positiion;
+    static int32_t joint5_positiion;
+    static int32_t joint6_positiion;
+    static int32_t joint1_velocity;
+    static int32_t joint2_velocity;
+    static int32_t joint3_velocity;
+    static int32_t joint4_velocity;
+    static int32_t joint5_velocity;
+    static int32_t joint6_velocity;
     const float scale = 10000.0f;
-    int32_t joint1_positiion = (int32_t)(motor[0].para.pos * scale);
-    int32_t joint2_positiion = (int32_t)(motor[1].para.pos * scale);
-    int32_t joint3_positiion = (int32_t)(motor[2].para.pos * scale);
-    int32_t joint4_positiion = (int32_t)(motor[3].para.pos * scale);
-    int32_t joint5_positiion = (int32_t)(motor[4].para.pos * scale);
-    int32_t joint6_positiion = (int32_t)(motor[5].para.pos * scale);
+    joint1_positiion = (int32_t)(motor[0].para.pos * scale);
+    joint2_positiion = (int32_t)(motor[1].para.pos * scale);
+    joint3_positiion = (int32_t)(motor[2].para.pos * scale);
+    joint4_positiion = (int32_t)(motor[3].para.pos * scale);
+    joint5_positiion = (int32_t)(motor[4].para.pos * scale);
+    joint6_positiion = (int32_t)(motor[5].para.pos * scale);
 
-    int32_t joint1_velocity = (int32_t)(motor[0].para.pos * scale);
-    int32_t joint2_velocity = (int32_t)(motor[1].para.pos * scale);
-    int32_t joint3_velocity = (int32_t)(motor[2].para.pos * scale);
-    int32_t joint4_velocity = (int32_t)(motor[3].para.pos * scale);
-    int32_t joint5_velocity = (int32_t)(motor[4].para.pos * scale);
-    int32_t joint6_velocity = (int32_t)(motor[5].para.pos * scale);
+    joint1_velocity = (int32_t)(motor[0].para.pos * scale);
+    joint2_velocity = (int32_t)(motor[1].para.pos * scale);
+    joint3_velocity = (int32_t)(motor[2].para.pos * scale);
+    joint4_velocity = (int32_t)(motor[3].para.pos * scale);
+    joint5_velocity = (int32_t)(motor[4].para.pos * scale);
+    joint6_velocity = (int32_t)(motor[5].para.pos * scale);
 
 //    int32_t joint1_positiion = 10000;
 //    int32_t joint2_positiion = 20000;

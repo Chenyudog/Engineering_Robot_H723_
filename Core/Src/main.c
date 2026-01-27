@@ -22,6 +22,7 @@
 #include "adc.h"
 #include "dma.h"
 #include "fdcan.h"
+#include "i2c.h"
 #include "memorymap.h"
 #include "octospi.h"
 #include "spi.h"
@@ -124,6 +125,8 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM2_Init();
   MX_OCTOSPI2_Init();
+  MX_I2C1_Init();
+  MX_I2C5_Init();
   /* USER CODE BEGIN 2 */
     MX_USB_DEVICE_Init();
     dwt_init();

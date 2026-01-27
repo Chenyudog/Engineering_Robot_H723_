@@ -189,7 +189,7 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-    if(auto_state_effect_key == 0)//自定义控制模式
+    if(auto_state_effect_key == 1)//自定义控制模式
     {
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
             for(uint8_t i=0;i<6;i++){
@@ -204,15 +204,22 @@ void DMmotorTask_Entry(void const * argument)
         }
         DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
     }
-    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
+    else if(auto_state_effect_key == 0 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
     {
-        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_receive_pc_cmd_arm_msg_data.joint1_pos);
-        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_receive_pc_cmd_arm_msg_data.joint2_pos);
-        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_receive_pc_cmd_arm_msg_data.joint3_pos);
-        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_receive_pc_cmd_arm_msg_data.joint4_pos);
-        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_receive_pc_cmd_arm_msg_data.joint5_pos);
-        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_receive_pc_cmd_arm_msg_data.joint6_pos);
+        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos;//避免破环校准功能状态机
+        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos;
+        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos;
+        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos;
+        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos;
+        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos;
+        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
+        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
+        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
+        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
         DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制//一键夹取功能
+
     }
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
@@ -344,7 +351,9 @@ void DMcontrol_motor_3(hcan_t* hcan, DMmotorControl* motor_control, float target
             motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor3]);
             motor_control->calibrated = 1;
         }
+
     }else if(motor_control->calibrated == 1){
+
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
 
         float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
