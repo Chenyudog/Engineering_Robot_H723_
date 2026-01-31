@@ -3,7 +3,7 @@
 #include "drv_dwt.h"
 #include "Power_task.h"
 #include "myi2c.h"
-#include "i2c.h"
+
 
 /* -------------------------------- 读取功率相关 --------------------------------- */
 float ina226_bus_voltage = 0.0f;    // 总线电压（V）
@@ -33,7 +33,7 @@ void PowerTask_Entry(void const * argument)
         power_task_delta = dwt_get_time_ms() - power_task_start_dt;
         power_task_start_dt = dwt_get_time_ms();
         power_task_dt = dwt_get_delta(&power_task_dwt);
-    /* -------------------------------- 调试监测线程调度 --------------------------------- */
+        /* -------------------------------- 调试监测线程调度 --------------------------------- */
         INA226_UpdateData();//更新功率
         vTaskDelay(1);
         //reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
@@ -51,11 +51,11 @@ void INA226_Init(void) {
 
     // 配置寄存器
     INA226_WriteRegister(INA226_REG_CONFIG, INA226_CONFIG_DEFAULT);
-    vTaskDelay(100);
+    dwt_delay_us(5);
 
     // 校准寄存器（关键：决定电流/功率计算精度）
     INA226_WriteRegister(INA226_REG_CALIB, INA226_CALIB_DEFAULT);
-    vTaskDelay(100);
+    dwt_delay_us(5);
 }
 
 /**
