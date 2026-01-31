@@ -20,6 +20,7 @@
 #include "robot_task.h"
 #include "usbd_cdc_if.h"
 #include "dm_motor_drv.h"
+#include "cmd_task.h"
 
 #define MAX_USB_BUF_LEN     60
 #define HEAD_BUF_LEN        4       // 帧头长度（0-3字节:帧头0xFF、地址、命名ID、数据长度）
@@ -421,7 +422,7 @@ void set_data(uint8_t rx_byte)
 }
 
 extern motor_t motor[num];
-int8_t gripper_state= 1;
+extern Gripper_mode_e gripper_state ;
 int8_t auto_state= 1;
 
 void ArmJointDataPack(void)
@@ -447,36 +448,21 @@ void ArmJointDataPack(void)
     static int32_t joint5_velocity;
     static int32_t joint6_velocity;
     const float scale = 10000.0f;
-    joint1_positiion = (int32_t)(motor[0].para.pos * scale);
-    joint2_positiion = (int32_t)(motor[1].para.pos * scale);
-    joint3_positiion = (int32_t)(motor[2].para.pos * scale);
-    joint4_positiion = (int32_t)(motor[3].para.pos * scale);
-    joint5_positiion = (int32_t)(motor[4].para.pos * scale);
-    joint6_positiion = (int32_t)(motor[5].para.pos * scale);
+    joint1_positiion = (int32_t)(-motor[0].para.pos * scale / 57.3f);//一号电机往左变大，
+    joint2_positiion = (int32_t)(motor[1].para.pos * scale / 57.3f);
+    joint3_positiion = (int32_t)(motor[2].para.pos * scale / 57.3f);
+    joint4_positiion = (int32_t)(motor[3].para.pos * scale / 57.3f);
+    joint5_positiion = (int32_t)(motor[4].para.pos * scale / 57.3f);
+    joint6_positiion = (int32_t)(motor[5].para.pos * scale / 57.3f);
 
-    joint1_velocity = (int32_t)(motor[0].para.pos * scale);
-    joint2_velocity = (int32_t)(motor[1].para.pos * scale);
-    joint3_velocity = (int32_t)(motor[2].para.pos * scale);
-    joint4_velocity = (int32_t)(motor[3].para.pos * scale);
-    joint5_velocity = (int32_t)(motor[4].para.pos * scale);
-    joint6_velocity = (int32_t)(motor[5].para.pos * scale);
+    joint1_velocity = (int32_t)(motor[0].para.vel * scale);
+    joint2_velocity = (int32_t)(motor[1].para.vel * scale);
+    joint3_velocity = (int32_t)(motor[2].para.vel * scale);
+    joint4_velocity = (int32_t)(motor[3].para.vel * scale);
+    joint5_velocity = (int32_t)(motor[4].para.vel * scale);
+    joint6_velocity = (int32_t)(motor[5].para.vel * scale);
 
-//    int32_t joint1_positiion = 10000;
-//    int32_t joint2_positiion = 20000;
-//    int32_t joint3_positiion =30000;
-//    int32_t joint4_positiion =40000;
-//    int32_t joint5_positiion =50000;
-//    int32_t joint6_positiion =60000;
-//
-//    int32_t joint1_velocity = 70000;
-//    int32_t joint2_velocity = 80000;
-//    int32_t joint3_velocity = 90000;
-//    int32_t joint4_velocity = 100000;
-//    int32_t joint5_velocity = 110000 ;
-//    int32_t joint6_velocity = 120000;
-
-    gripper_state=0;
-    auto_state= 0;
+    auto_state= 1;//这里有点问题，上位机初始化这个必须为一才能初始化成功//打算后续换为下位机发送命令，让出控制权，结束后接手控制权
 
 
     uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始

@@ -22,7 +22,7 @@
 #include "msg_freertos.h"
 #include "transmission_task.h"
 
-static int8_t auto_state_effect_key = 0;///没有想好用什么实现一键开启，所以先用这个变量替代
+static int8_t auto_state_effect_key = 1;///没有想好用什么实现一键开启，所以先用这个变量替代
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
 //static struct chassis_fdb_msg chassis_fdb;
@@ -48,6 +48,7 @@ static float DMmotor_task_start_dt = 0; // 监测线程开始时间
 static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤波的值
 static float dm_angles[6] = {0.0f};   // 队列读取值
 static float dm_motor_angles[6] = {0.0f};   // 期望角度值
+Gripper_mode_e gripper_state ;
 
 extern QueueHandle_t xControlQueue;
 extern Gripper_mode_e Gripper_mode;
@@ -70,9 +71,9 @@ struct arm_cmd_msg arm_cmd = {
 
 void arm_cmd_enable(void) {
     if (arm_cmd.last_mode == ARM_DISABLE && arm_cmd.ctrl_mode == ARM_ENABLE) {
-        dm_motor_enable(&hfdcan3, &motor[Motor1]);
+        dm_motor_enable(&hfdcan2, &motor[Motor1]);
         vTaskDelay(1);
-        dm_motor_enable(&hfdcan3, &motor[Motor2]);
+        dm_motor_enable(&hfdcan2, &motor[Motor2]);
         vTaskDelay(1);
         for(int i=2;i<6;i++)
         {
@@ -84,9 +85,9 @@ void arm_cmd_enable(void) {
 }
 void arm_cmd_disable(void) {
     if (arm_cmd.last_mode == ARM_ENABLE && arm_cmd.ctrl_mode == ARM_DISABLE) {
-        dm_motor_disable(&hfdcan3, &motor[Motor1]);
+        dm_motor_disable(&hfdcan2, &motor[Motor1]);
         vTaskDelay(1);
-        dm_motor_disable(&hfdcan3, &motor[Motor2]);
+        dm_motor_disable(&hfdcan2, &motor[Motor2]);
         vTaskDelay(1);
         for(int i=2;i<6;i++)
         {
@@ -99,10 +100,12 @@ void arm_cmd_disable(void) {
 
 void arm_cmd_init(void) {
     if (arm_cmd.last_mode == ARM_ENABLE && arm_cmd.ctrl_mode == ARM_INIT) {
-        pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+        pos_ctrl(&hfdcan2, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+        vTaskDelay(200); // 延时，等待电机稳定
+        pos_ctrl(&hfdcan2, motor[Motor2].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
 
-        for(int i=1;i<6;i++)
+        for(int i=2;i<6;i++)
         {
             dm_motor_enable(&hfdcan2, &motor[i]);
             pos_ctrl(&hfdcan2, motor[i].id, 0, 0.7f); // 发送控制命令
@@ -143,14 +146,14 @@ void DMmotorTask_Entry(void const * argument)
         motor_controls[i].calibrated = 0;
     }
 
-    dm_motor_enable(&hfdcan3, &motor[Motor1]);
+    dm_motor_enable(&hfdcan2, &motor[Motor1]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+    pos_ctrl(&hfdcan2, motor[Motor1].id, 0, 0.7f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
-    dm_motor_enable(&hfdcan3, &motor[Motor2]);
+    dm_motor_enable(&hfdcan2, &motor[Motor2]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
+    pos_ctrl(&hfdcan2, motor[Motor2].id, 0, 0.7f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     for(int i=2;i<6;i++)
@@ -189,14 +192,14 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-    if(auto_state_effect_key == 1)//自定义控制模式
+    if(auto_state_effect_key == 0)//自定义控制模式
     {
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
             for(uint8_t i=0;i<6;i++){
                 dm_motor_angles[i] = dm_angles[i];
             }
-            DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-            DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+            DMcontrol_motor_1(&hfdcan2, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+            DMcontrol_motor_2(&hfdcan2, &motor_controls[Motor2], dm_motor_angles[Motor2]);
             DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
             DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
@@ -204,16 +207,16 @@ void DMmotorTask_Entry(void const * argument)
         }
         DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
     }
-    else if(auto_state_effect_key == 0 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
+    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
     {
-        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos;//避免破环校准功能状态机
-        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos;
-        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos;
-        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos;
-        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos;
-        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos;
-        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
+        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
+        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos * 57.3f;
+        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
+        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
+        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
+        DMcontrol_motor_1(&hfdcan2, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+        DMcontrol_motor_2(&hfdcan2, &motor_controls[Motor2], dm_motor_angles[Motor2]);
         DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
         DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
         DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
@@ -432,6 +435,7 @@ void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl)
         target_vel = 0.0f;
         target_kp = 0.0f;
         target_kd = 0.5f;
+        gripper_state = Gripper_OPEN;
     }
     else//关闭
     {
@@ -440,6 +444,7 @@ void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl)
         target_vel = 0.0f;
         target_kp = 0.0f;
         target_kd = 0.5f;
+        gripper_state = Gripper_CLOSE;
     }
 
     smooth_motion_7(hcan, &motor[Motor7], target_rad, target_torque ,target_vel,target_kp,target_kd);

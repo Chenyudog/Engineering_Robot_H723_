@@ -51,12 +51,11 @@ void INA226_Init(void) {
 
     // 配置寄存器
     INA226_WriteRegister(INA226_REG_CONFIG, INA226_CONFIG_DEFAULT);
-    dwt_delay_us(5);
-
+    vTaskDelay(100);
 
     // 校准寄存器（关键：决定电流/功率计算精度）
     INA226_WriteRegister(INA226_REG_CALIB, INA226_CALIB_DEFAULT);
-    dwt_delay_us(5);
+    vTaskDelay(100);
 }
 
 /**
@@ -150,7 +149,8 @@ void INA226_UpdateData(void) {
     uint16_t raw_data;
     // 读取功率（无符号，依赖校准值）
     raw_data = INA226_ReadRegister(INA226_REG_POWER);
-    if (raw_data != 0xFFFF) {
+    if (raw_data != 0xFFFF)
+    {
         ina226_power = (float)raw_data * INA226_POWER_LSB;
         power_update_timestamp = power_task_start_dt;
 

@@ -21,20 +21,20 @@
 #define MOTOR_5_MAX_LIMIT (1.57f)
 
 // 四号电机的角度限制
-#define MOTOR_4_MIN_LIMIT (-3.0f)  // 最多3.14
-#define MOTOR_4_MAX_LIMIT 3.0f
+#define MOTOR_4_MIN_LIMIT (-2.0f)  // 最多3.14
+#define MOTOR_4_MAX_LIMIT 2.0f
 
 // 三号电机的角度限制
 #define MOTOR_3_MIN_LIMIT 0.0f
 #define MOTOR_3_MAX_LIMIT 2.4f    // 点位说明，2为即将越过点位，2.6朝天，3.1越出点位，4.2反向垂直，4.9垂直吸盘，5.2极限
 
 // 计算二号电机的角度限制（通过齿轮比）
-#define MOTOR_2_MIN_LIMIT (-1.74f)
+#define MOTOR_2_MIN_LIMIT (-2.0f)
 #define MOTOR_2_MAX_LIMIT (-0.01f)
 
 // 计算一号电机的角度限制
-#define MOTOR_1_MIN_LIMIT (-3.0f)
-#define MOTOR_1_MAX_LIMIT 3.0f
+#define MOTOR_1_MIN_LIMIT (-2.4f)
+#define MOTOR_1_MAX_LIMIT 2.4f
 
 void arm_cmd_state_machine(void);
 void arm_cmd_enable(void);
