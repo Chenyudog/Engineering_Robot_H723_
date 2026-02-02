@@ -384,84 +384,84 @@ void fdcan2_process_callback(void)
     fdcanx_receive_FIFO0(&hfdcan2, &rec_id, rx_data);//取出接收到的数据帧
     rec_id = (rx_data[0]) & 0x0F;
     switch (rec_id) {
-        case 1: {
-            float raw_pos;
-            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
-            dm_motor_fbdata(&motor[Motor1], rx_data);
-            raw_pos = motor[Motor1].para.pos;
-
-            motor1_buf[motor1_buf_idx] = raw_pos;
-            motor1_buf_idx = (motor1_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++)
-            {
-                sorted_buf[i] = motor1_buf[i];
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4 - i; j++)
-                {
-                    if (sorted_buf[j] > sorted_buf[j + 1])
-                    {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor1].para.pos = sorted_buf[2];
-            if (motor[Motor1].para.pos > MOTOR_1_MAX_LIMIT*180.0f/PI)
-            {
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            }
-            else if (motor[Motor1].para.pos < MOTOR_1_MIN_LIMIT*180.0f/PI)
-            {
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            }
-            break;
-        }
-        case 2: {
-            float raw_pos;
-            motor[Motor2].para.last_pos = motor[Motor2].para.pos;
-            dm_motor_fbdata(&motor[Motor2], rx_data);
-            raw_pos = motor[Motor2].para.pos;
-
-            motor2_buf[motor2_buf_idx] = raw_pos;
-            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++)
-            {
-                sorted_buf[i] = motor2_buf[i];
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4 - i; j++)
-                {
-                    if (sorted_buf[j] > sorted_buf[j + 1])
-                    {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor2].para.pos = sorted_buf[2];
-            if (motor[Motor2].para.pos > MOTOR_2_MAX_LIMIT*180.0f/PI)
-            {
-                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-            }
-            else if (motor[Motor2].para.pos < MOTOR_2_MIN_LIMIT*180.0f/PI)
-            {
-                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-            }
-            break;
-        }
+//        case 1: {
+//            float raw_pos;
+//            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
+//            dm_motor_fbdata(&motor[Motor1], rx_data);
+//            raw_pos = motor[Motor1].para.pos;
+//
+//            motor1_buf[motor1_buf_idx] = raw_pos;
+//            motor1_buf_idx = (motor1_buf_idx + 1) % 5;
+//
+//            float sorted_buf[5];
+//            for (int i = 0; i < 5; i++)
+//            {
+//                sorted_buf[i] = motor1_buf[i];
+//            }
+//
+//            for (int i = 0; i < 4; i++)
+//            {
+//                for (int j = 0; j < 4 - i; j++)
+//                {
+//                    if (sorted_buf[j] > sorted_buf[j + 1])
+//                    {
+//                        float temp = sorted_buf[j];
+//                        sorted_buf[j] = sorted_buf[j + 1];
+//                        sorted_buf[j + 1] = temp;
+//                    }
+//                }
+//            }
+//
+//            motor[Motor1].para.pos = sorted_buf[2];
+//            if (motor[Motor1].para.pos > MOTOR_1_MAX_LIMIT*180.0f/PI)
+//            {
+//                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+//            }
+//            else if (motor[Motor1].para.pos < MOTOR_1_MIN_LIMIT*180.0f/PI)
+//            {
+//                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+//            }
+//            break;
+//        }
+//        case 2: {
+//            float raw_pos;
+//            motor[Motor2].para.last_pos = motor[Motor2].para.pos;
+//            dm_motor_fbdata(&motor[Motor2], rx_data);
+//            raw_pos = motor[Motor2].para.pos;
+//
+//            motor2_buf[motor2_buf_idx] = raw_pos;
+//            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
+//
+//            float sorted_buf[5];
+//            for (int i = 0; i < 5; i++)
+//            {
+//                sorted_buf[i] = motor2_buf[i];
+//            }
+//
+//            for (int i = 0; i < 4; i++)
+//            {
+//                for (int j = 0; j < 4 - i; j++)
+//                {
+//                    if (sorted_buf[j] > sorted_buf[j + 1])
+//                    {
+//                        float temp = sorted_buf[j];
+//                        sorted_buf[j] = sorted_buf[j + 1];
+//                        sorted_buf[j + 1] = temp;
+//                    }
+//                }
+//            }
+//
+//            motor[Motor2].para.pos = sorted_buf[2];
+//            if (motor[Motor2].para.pos > MOTOR_2_MAX_LIMIT*180.0f/PI)
+//            {
+//                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
+//            }
+//            else if (motor[Motor2].para.pos < MOTOR_2_MIN_LIMIT*180.0f/PI)
+//            {
+//                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
+//            }
+//            break;
+//        }
 
         case 3: {
             float raw_pos;
@@ -488,9 +488,9 @@ void fdcan2_process_callback(void)
 
             motor[Motor3].para.pos = sorted_buf[2];
             if (motor[Motor3].para.pos > MOTOR_3_MAX_LIMIT*180.0f/PI)
-                motor[Motor3].para.pos = motor[Motor3].para.last_pos;
+                motor[Motor3].para.pos = MOTOR_3_MAX_LIMIT*180.0f/PI;
             else if (motor[Motor3].para.pos < MOTOR_3_MIN_LIMIT*180.0f/PI)
-                motor[Motor3].para.pos = motor[Motor3].para.last_pos;
+                motor[Motor3].para.pos = MOTOR_3_MIN_LIMIT*180.0f/PI;
             break;
         }
 
@@ -519,9 +519,9 @@ void fdcan2_process_callback(void)
 
             motor[Motor4].para.pos = sorted_buf[2];
             if (motor[Motor4].para.pos > MOTOR_4_MAX_LIMIT*180.0f/PI)
-                motor[Motor4].para.pos = motor[Motor4].para.last_pos;
+                motor[Motor4].para.pos = MOTOR_4_MAX_LIMIT*180.0f/PI;
             else if (motor[Motor4].para.pos < MOTOR_4_MIN_LIMIT*180.0f/PI)
-                motor[Motor4].para.pos = motor[Motor4].para.last_pos;
+                motor[Motor4].para.pos = MOTOR_4_MIN_LIMIT*180.0f/PI;
             break;
         }
 
@@ -550,9 +550,9 @@ void fdcan2_process_callback(void)
 
             motor[Motor5].para.pos = sorted_buf[2];
             if (motor[Motor5].para.pos > MOTOR_5_MAX_LIMIT*180.0f/PI)
-                motor[Motor5].para.pos = motor[Motor5].para.last_pos;
+                motor[Motor5].para.pos = MOTOR_5_MAX_LIMIT*180.0f/PI;
             else if (motor[Motor5].para.pos < MOTOR_5_MIN_LIMIT*180.0f/PI)
-                motor[Motor5].para.pos = motor[Motor5].para.last_pos;
+                motor[Motor5].para.pos = MOTOR_5_MIN_LIMIT*180.0f/PI;
             break;
         }
 
@@ -580,10 +580,10 @@ void fdcan2_process_callback(void)
             }
 
             motor[Motor6].para.pos = sorted_buf[2];
-            if (motor[Motor6].para.pos > PI)
-                motor[Motor6].para.pos = motor[Motor6].para.last_pos;
-            else if (motor[Motor6].para.pos < -PI)
-                motor[Motor6].para.pos = motor[Motor6].para.last_pos;
+            if (motor[Motor6].para.pos > PI*180.0f/PI)
+                motor[Motor6].para.pos = PI*180.0f/PI;
+            else if (motor[Motor6].para.pos < -PI*180.0f/PI)
+                motor[Motor6].para.pos = -PI*180.0f/PI;
             break;
         }
 
@@ -604,6 +604,8 @@ void fdcan3_process_callback(void)
 
     static float motor1_buf[5] = {0.0f};
     static uint8_t motor1_buf_idx = 0;
+    static float motor2_buf[5] = {0.0f};
+    static uint8_t motor2_buf_idx = 0;
 
     fdcanx_receive_FIFO0(&hfdcan3, &rec_id, rx_data);
     rec_id = (rx_data[0]) & 0x0F;
@@ -634,9 +636,40 @@ void fdcan3_process_callback(void)
 
         motor[Motor1].para.pos = sorted_buf[2];
         if (motor[Motor1].para.pos > MOTOR_1_MAX_LIMIT * 180.0f / PI)
-            motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+            motor[Motor1].para.pos = MOTOR_1_MAX_LIMIT * 180.0f / PI;
         else if (motor[Motor1].para.pos < MOTOR_1_MIN_LIMIT * 180.0f / PI)
-            motor[Motor1].para.pos = motor[Motor1].para.last_pos;
+            motor[Motor1].para.pos = MOTOR_1_MIN_LIMIT * 180.0f / PI;
+    }
+    else if(rec_id == 2)//处理一号电机数据
+    {
+        float raw_pos;
+        motor[Motor2].para.last_pos = motor[Motor2].para.pos;
+        dm_motor_fbdata(&motor[Motor2], rx_data);
+        raw_pos = motor[Motor2].para.pos;
+
+        motor2_buf[motor2_buf_idx] = raw_pos;
+        motor2_buf_idx = (motor2_buf_idx + 1) % 5;
+
+        float sorted_buf[5];
+        for (int i = 0; i < 5; i++) {
+            sorted_buf[i] = motor2_buf[i];
+        }
+
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4 - i; j++) {
+                if (sorted_buf[j] > sorted_buf[j + 1]) {
+                    float temp = sorted_buf[j];
+                    sorted_buf[j] = sorted_buf[j + 1];
+                    sorted_buf[j + 1] = temp;
+                }
+            }
+        }
+
+        motor[Motor2].para.pos = sorted_buf[2];
+        if (motor[Motor2].para.pos > MOTOR_2_MAX_LIMIT * 180.0f / PI)
+            motor[Motor2].para.pos = MOTOR_2_MAX_LIMIT * 180.0f / PI;
+        else if (motor[Motor2].para.pos < MOTOR_2_MIN_LIMIT * 180.0f / PI)
+            motor[Motor2].para.pos = MOTOR_2_MIN_LIMIT * 180.0f / PI;
     }
 }
 

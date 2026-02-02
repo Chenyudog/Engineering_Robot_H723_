@@ -71,9 +71,9 @@ struct arm_cmd_msg arm_cmd = {
 
 void arm_cmd_enable(void) {
     if (arm_cmd.last_mode == ARM_DISABLE && arm_cmd.ctrl_mode == ARM_ENABLE) {
-        dm_motor_enable(&hfdcan2, &motor[Motor1]);
+        dm_motor_enable(&hfdcan3, &motor[Motor1]);
         vTaskDelay(1);
-        dm_motor_enable(&hfdcan2, &motor[Motor2]);
+        dm_motor_enable(&hfdcan3, &motor[Motor2]);
         vTaskDelay(1);
         for(int i=2;i<6;i++)
         {
@@ -85,9 +85,9 @@ void arm_cmd_enable(void) {
 }
 void arm_cmd_disable(void) {
     if (arm_cmd.last_mode == ARM_ENABLE && arm_cmd.ctrl_mode == ARM_DISABLE) {
-        dm_motor_disable(&hfdcan2, &motor[Motor1]);
+        dm_motor_disable(&hfdcan3, &motor[Motor1]);
         vTaskDelay(1);
-        dm_motor_disable(&hfdcan2, &motor[Motor2]);
+        dm_motor_disable(&hfdcan3, &motor[Motor2]);
         vTaskDelay(1);
         for(int i=2;i<6;i++)
         {
@@ -100,9 +100,9 @@ void arm_cmd_disable(void) {
 
 void arm_cmd_init(void) {
     if (arm_cmd.last_mode == ARM_ENABLE && arm_cmd.ctrl_mode == ARM_INIT) {
-        pos_ctrl(&hfdcan2, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+        pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
-        pos_ctrl(&hfdcan2, motor[Motor2].id, 0, 0.7f); // 发送控制命令
+        pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
 
         for(int i=2;i<6;i++)
@@ -146,14 +146,14 @@ void DMmotorTask_Entry(void const * argument)
         motor_controls[i].calibrated = 0;
     }
 
-    dm_motor_enable(&hfdcan2, &motor[Motor1]);
+    dm_motor_enable(&hfdcan3, &motor[Motor1]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan2, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
-    dm_motor_enable(&hfdcan2, &motor[Motor2]);
+    dm_motor_enable(&hfdcan3, &motor[Motor2]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan2, motor[Motor2].id, 0, 0.7f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     for(int i=2;i<6;i++)
@@ -198,8 +198,8 @@ void DMmotorTask_Entry(void const * argument)
             for(uint8_t i=0;i<6;i++){
                 dm_motor_angles[i] = dm_angles[i];
             }
-            DMcontrol_motor_1(&hfdcan2, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-            DMcontrol_motor_2(&hfdcan2, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+            DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+            DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
             DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
             DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
@@ -215,8 +215,8 @@ void DMmotorTask_Entry(void const * argument)
         dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
         dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
         dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
-        DMcontrol_motor_1(&hfdcan2, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-        DMcontrol_motor_2(&hfdcan2, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
         DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
         DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
         DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
@@ -435,7 +435,7 @@ void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl)
         target_vel = 0.0f;
         target_kp = 0.0f;
         target_kd = 0.5f;
-        gripper_state = Gripper_OPEN;
+        gripper_state = Gripper_OPEN;//改变夹爪状态报给上位机
     }
     else//关闭
     {
