@@ -17,5 +17,11 @@ typedef enum
     Gripper_OPEN,
 } Gripper_mode_e;
 
+typedef enum
+{
+    Store_NO1,
+    Store_NO2,
+    Store_NO3,
+} Store_mode_e;
 
 #endif //CTRBOARD_H7_ALL_CMD_TASK_H

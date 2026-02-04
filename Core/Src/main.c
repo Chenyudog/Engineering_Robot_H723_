@@ -124,6 +124,7 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM2_Init();
   MX_OCTOSPI2_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
     MX_USB_DEVICE_Init();
     dwt_init();

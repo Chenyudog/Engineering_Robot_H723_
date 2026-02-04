@@ -30,6 +30,7 @@
 #include "ins_task.h"
 #include "msg_freertos.h"
 #include "chassis_task.h"
+#include "tim.h"
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
 //static struct chassis_fdb_msg chassis_fdb;
@@ -42,7 +43,10 @@ static subscriber_t *pc_cmd;
 //static void chassis_pub_init(void);
 static void cmd_sub_init(void);
 //static void cmd_pub_push(void);
+void store1_ctrl(void);
+void store2_ctrl(void);
 static void cmd_sub_pull(void);
+void store_ctrl(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 static uint32_t cmd_task_dwt = 0;   // 毫秒监测
@@ -63,15 +67,14 @@ extern struct referee_fdb_msg referee_fdb;
 
 extern struct cmd_chassis_msg cmd_chassis;
 
-
+static Store_mode_e store_mode1 = Store_NO1;
+static Store_mode_e store_mode2 = Store_NO1;
 /* 外部变量声明 */
 /*键盘加速度的斜坡*/
 ramp_obj_t *km_vx_ramp = NULL;;//x轴控制斜坡
 ramp_obj_t *km_vy_ramp = NULL;//y周控制斜坡
 ramp_obj_t *km_vw_ramp = NULL;//y周控制斜坡
 /* 气泵控制状态 */
-static uint8_t pump_state = 0;
-
 
 /* -------------------------------- 线程入口 ------------------------------- */
 void CmdTask_Entry(void const * argument)
@@ -84,10 +87,12 @@ void CmdTask_Entry(void const * argument)
     sbus_data_fdb.sw4 = RC_UP;
 
     vt13_remote_data_init();
-
+    store_mode1 = Store_NO1;//初始化储存罐
+    store_mode2 = Store_NO1;
     km_vx_ramp = ramp_register(0, 200); //2500000
     km_vy_ramp = ramp_register(0, 200);  // 0 -2的累加次数
     km_vw_ramp = ramp_register(0, 200);
+
     /* 获取原始键盘数据 */
     memset(&pc_data, 0, sizeof(pc_control_t));
     memset(&keyboard, 0, sizeof(keyboard_control_t));
@@ -118,7 +123,7 @@ void CmdTask_Entry(void const * argument)
         remote_to_cmd_sbus();
         arm_cmd_state_machine(); // 机械臂状态机
         chassis_cmd_state_machine();
-        Gripper_ctrl();
+        store_ctrl();//存储罐控制
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -266,14 +271,40 @@ void remote_to_cmd_sbus(void) {
 //}
 
 
-void Gripper_ctrl(void)
+void store1_ctrl(void)
 {
-    if (pump_mode == PUMP_OPEN)
+    if (store_mode1 == Store_NO1 )
     {
-        HAL_GPIO_WritePin(PUMP2_2_GPIO_Port, PUMP2_2_Pin, GPIO_PIN_SET);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500);//一号柱在前
     }
-    else if (pump_mode == PUMP_CLOSE)
+    else if (store_mode1 == Store_NO2 )
     {
-        HAL_GPIO_WritePin(PUMP2_2_GPIO_Port, PUMP2_2_Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 612);//一号柱在前
     }
+    else if (store_mode1 == Store_NO3 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2388);//一号柱在前
+    }
+}
+
+void store2_ctrl(void)
+{
+    if (store_mode2 == Store_NO1 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 1500);//一号柱在前
+    }
+    else if (store_mode2 == Store_NO2 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 612);//一号柱在前
+    }
+    else if (store_mode2 == Store_NO3 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 2388);//一号柱在前
+    }
+}
+
+void store_ctrl(void)
+{
+    store1_ctrl();
+    store2_ctrl();
 }

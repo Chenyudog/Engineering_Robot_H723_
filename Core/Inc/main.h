@@ -57,10 +57,6 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define POWER_24V_2_Pin GPIO_PIN_13
-#define POWER_24V_2_GPIO_Port GPIOC
-#define POWER_24V_1_Pin GPIO_PIN_14
-#define POWER_24V_1_GPIO_Port GPIOC
 #define POWER_5V_Pin GPIO_PIN_15
 #define POWER_5V_GPIO_Port GPIOC
 #define CS1_ACCEL_Pin GPIO_PIN_0
@@ -75,14 +71,10 @@ void Error_Handler(void);
 #define DCMI_PWDN_GPIO_Port GPIOC
 #define IMU_HEAT_Pin GPIO_PIN_1
 #define IMU_HEAT_GPIO_Port GPIOB
-#define PUMP2_1_Pin GPIO_PIN_9
-#define PUMP2_1_GPIO_Port GPIOE
 #define INT1_ACCEL_Pin GPIO_PIN_10
 #define INT1_ACCEL_GPIO_Port GPIOE
 #define INT1_GRYO_Pin GPIO_PIN_12
 #define INT1_GRYO_GPIO_Port GPIOE
-#define PUMP2_2_Pin GPIO_PIN_13
-#define PUMP2_2_GPIO_Port GPIOE
 #define LCD_CS_Pin GPIO_PIN_15
 #define LCD_CS_GPIO_Port GPIOE
 #define LCD_BLK_Pin GPIO_PIN_10
