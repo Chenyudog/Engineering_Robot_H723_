@@ -174,8 +174,8 @@ extern Gripper_mode_e Gripper_mode;
 extern struct arm_cmd_msg arm_cmd;
 /* ------------------------------ 将遥控器数据转换为控制指令 ----------------------------- */
 void remote_to_cmd_sbus(void) {
-    cmd_chassis.last_mode = cmd_chassis.ctrl_mode;
 
+    cmd_chassis.last_mode = cmd_chassis.ctrl_mode;
 
     if (vt13_remote_parsed_data_fdb.online) {
         // 新遥控器（vt13）通道映射

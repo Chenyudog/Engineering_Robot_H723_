@@ -196,11 +196,11 @@ void UsartTask_Entry(void const * argument)
 
         // 判断触发源并处理数据，根据串口数据的重要程度调整处理顺序
         if (xActivatedMember == xSemaphoreUART1_RX) {
-            process_usart1_rx_data();  // 自定义控制器
+            process_usart1_rx_data();  // 自定义控制器//961200
         } else if (xActivatedMember == xSemaphoreUART5_RX) {
-            process_uart5_rx_data();  // 福斯遥控器
+            process_uart5_rx_data();  // 福斯遥控器 //100000
         } else if (xActivatedMember == xSemaphoreUART10_RX) {
-            process_uart10_rx_data(); // 裁判系统（电管）
+            process_uart10_rx_data(); // 裁判系统（电管）//115200
         }
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 

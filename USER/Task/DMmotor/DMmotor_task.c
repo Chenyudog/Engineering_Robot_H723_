@@ -22,7 +22,7 @@
 #include "msg_freertos.h"
 #include "transmission_task.h"
 
-static int8_t auto_state_effect_key = 1;///没有想好用什么实现一键开启，所以先用这个变量替代
+static int8_t auto_state_effect_key = 0;///没有想好用什么实现一键开启，所以先用这个变量替代
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
 //static struct chassis_fdb_msg chassis_fdb;
@@ -192,8 +192,8 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-    if(auto_state_effect_key == 0)//自定义控制模式
-    {
+//    if(auto_state_effect_key == 0)//自定义控制模式
+//    {
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
             for(uint8_t i=0;i<6;i++){
                 dm_motor_angles[i] = dm_angles[i];
@@ -206,24 +206,24 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
         }
         DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
-    }
-    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
-    {
-        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
-        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
-        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos * 57.3f;
-        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
-        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
-        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
-        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
-        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
-        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
-        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
-        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
-        DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制//一键夹取功能
-
-    }
+//    }
+//    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
+//    {
+//        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
+//        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
+//        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos * 57.3f;
+//        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
+//        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
+//        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
+//        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+//        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+//        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
+//        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
+//        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
+//        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
+//        DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制//一键夹取功能
+//
+//    }
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 

@@ -103,7 +103,7 @@ void Calibrate_MPU_Offset(ImuDataTypeDef *bmi088)
 
     float gNormTemp, gNormMax, gNormMin;  // 加速度计极值
 
-#ifdef BSP_BMI088_CALI  // 更换开发板或定期校准，以便快速启动
+#ifdef BSP_BMI088_CALI  //更换开发板或定期校准,以便快速启动//如果要校准就把这个宏定义定义了
     static uint8_t cali_dt_max = 10;   // 对于不同开发板都需要定期校准，此处，已经校准故cali_dt_max = 0
 #else
     static uint8_t cali_dt_max = 0;
