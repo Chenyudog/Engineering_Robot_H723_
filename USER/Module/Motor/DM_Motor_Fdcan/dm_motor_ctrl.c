@@ -109,7 +109,7 @@ void dm_motor_init(void)
     motor[Motor7].ctrl.kd_set = 0.0f;
     motor[Motor7].tmp.PMAX = 12.5f;
     motor[Motor7].tmp.VMAX = 10.0f;
-    motor[Motor7].tmp.TMAX = 30.0f;
+    motor[Motor7].tmp.TMAX = 10.0f;
 
 }
 /**

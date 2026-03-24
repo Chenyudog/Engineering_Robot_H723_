@@ -118,12 +118,12 @@ void CmdTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-        pc_data = convert_remote_to_pc(&referee_fdb.remote_control);
+        pc_data = convert_remote_to_pc(&vt13_remote_parsed_data_fdb);
         PC_keyboard_mouse(&pc_data);
         remote_to_cmd_sbus();
         arm_cmd_state_machine(); // 机械臂状态机
         chassis_cmd_state_machine();
-        store_ctrl();//存储罐控制
+        //store_ctrl();//存储罐控制
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -190,7 +190,7 @@ void remote_to_cmd_sbus(void) {
         {
             Gripper_mode =Gripper_OPEN ;
         }
-        else
+        else if(vt13_remote_parsed_data_fdb.mode_sw == 2)
         {
             Gripper_mode =Gripper_CLOSE;
         }

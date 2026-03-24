@@ -272,10 +272,10 @@ void referee_data_save(uint8_t* frame)
         case PLAYER_MINIMAP_CMD_ID :
             memcpy(&map_command, frame + index, sizeof(map_command_t));
             break;
-        case KEYBOARD_MOUSE_CMD_ID :
-            memcpy(&remote_control, frame + index, sizeof(remote_control_t));
-            memcpy(&(referee_fdb.remote_control), &remote_control, sizeof(remote_control_t));
-            break;
+//        case KEYBOARD_MOUSE_CMD_ID :
+//            memcpy(&remote_control, frame + index, sizeof(remote_control_t));
+//            memcpy(&(referee_fdb.remote_control), &remote_control, sizeof(remote_control_t));
+//            break;
         case RADAR_MINIMAP_CMD_ID :
             memcpy(&map_robot_data, frame + index, sizeof(map_robot_data_t));
             break;

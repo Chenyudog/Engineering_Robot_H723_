@@ -21,7 +21,7 @@
 #include "cmd_task.h"
 #include "msg_freertos.h"
 #include "transmission_task.h"
-
+/////修改电机正负号在下面的函数修改
 static int8_t auto_state_effect_key = 0;///没有想好用什么实现一键开启，所以先用这个变量替代
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 //static struct chassis_cmd_msg chassis_cmd;
@@ -59,7 +59,7 @@ DMmotorControl motor_controls[6] = {
         { MOTOR_3_MIN_LIMIT, MOTOR_3_MAX_LIMIT, 0.0f, 0.0f, 0 }, // Motor 2 (FDCAN2)
         { MOTOR_4_MIN_LIMIT, MOTOR_4_MAX_LIMIT, 0.0f, 0.0f, 0 }, // Motor 3 (FDCAN2)
         { MOTOR_5_MIN_LIMIT, MOTOR_5_MAX_LIMIT, 0.0f, 0.0f, 0 }, // Motor 4 (FDCAN2)
-        { -M_PI, M_PI, 0.0f, 0.0f, 0 }  // Motor 5 (FDCAN2)
+        { MOTOR_6_MIN_LIMIT, MOTOR_6_MAX_LIMIT, 0.0f, 0.0f, 0 }  // Motor 5 (FDCAN2)
 };
 
 extern motor_t motor[num];//读取到的电机数据  //不可以修改
@@ -194,7 +194,8 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 //    if(auto_state_effect_key == 0)//自定义控制模式
 //    {
-        if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS) {
+        if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS)
+        {
             for(uint8_t i=0;i<6;i++){
                 dm_motor_angles[i] = dm_angles[i];
             }
@@ -206,7 +207,7 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
         }
         DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
-//    }
+        // }
 //    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
 //    {
 //        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
@@ -291,12 +292,12 @@ void smooth_motion_3(hcan_t* hcan, motor_t* motor, float target_angle) {
 
 void smooth_motion_4(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[3] = target_angle;
-    pos_ctrl(hcan, motor->id, current_angle[3], 10.0f);
+    pos_ctrl(hcan, motor->id, -current_angle[3], 10.0f);
 }
 
 void smooth_motion_5(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[4] = target_angle;
-    pos_ctrl(hcan, motor->id, -current_angle[4], 10.0f);
+    pos_ctrl(hcan, motor->id, current_angle[4], 10.0f);
 }
 
 void smooth_motion_6(hcan_t* hcan, motor_t* motor, float target_angle) {

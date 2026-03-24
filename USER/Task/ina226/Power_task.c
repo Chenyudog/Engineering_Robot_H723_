@@ -34,9 +34,9 @@ void PowerTask_Entry(void const * argument)
         power_task_start_dt = dwt_get_time_ms();
         power_task_dt = dwt_get_delta(&power_task_dwt);
         /* -------------------------------- 调试监测线程调度 --------------------------------- */
-        //INA226_UpdateData();//更新功率
+        INA226_UpdateData();//更新功率
         vTaskDelay(1000);
-        //reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
+        reg = INA226_ReadRegister(0x00);//用于测试有没有初始化成功
     }
 }
 

@@ -109,22 +109,22 @@ void TransmissionTask_Entry(void const * argument)
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         //接收上位机数据并解析
-        if (USB_Data_Ready_Flag == 1)
-        {
-            UnpackPCData();
-            USB_Received_Len = 0;
-            USB_Data_Ready_Flag = 0;
-        }
+//        if (USB_Data_Ready_Flag == 1)
+//        {
+//            UnpackPCData();
+//            USB_Received_Len = 0;
+//            USB_Data_Ready_Flag = 0;
+//        }
         //发送数据给上位机
         //InsDataPack();
-        vTaskDelay(1);
+        //vTaskDelay(1);
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-        ArmJointDataPack();//发给上位机
-        vTaskDelay(1);
+        //ArmJointDataPack();//发给上位机
+        vTaskDelay(10);
     }
 }
 /* -------------------------------- 线程结束 ------------------------------- */
