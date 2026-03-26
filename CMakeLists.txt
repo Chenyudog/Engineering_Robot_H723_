@@ -96,10 +96,13 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
 
         Middlewares/ST/ARM/DSP/Inc # 矩阵运算库
 
+        USER/Algorithm/ArmTrajectoryPlanning
         USER/Algorithm/Crc8_Crc16
         USER/Algorithm/Filter
         USER/Algorithm/KalmanFilter
         USER/Algorithm/KalmanFilterOne
+        #USER/Algorithm/Kinematic_6DOF_MDH
+        USER/Algorithm/Kinematic_6DOF_SDH
         #USER/Algorithm/MahonyAHRS
         USER/Algorithm/MyType
         USER/Algorithm/PID
@@ -148,10 +151,13 @@ add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32H723xx -DUSE_PWR_LDO_SUPPLY)
 
 # 源文件
 file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE/*.*"
+        "USER/Algorithm/ArmTrajectoryPlanning/*.*"
         "USER/Algorithm/Crc8_Crc16/*.*"
         "USER/Algorithm/Filter/*.*"
         "USER/Algorithm/KalmanFilter/*.*"
         "USER/Algorithm/KalmanFilterOne/*.*"
+        #"USER/Algorithm/Kinematic_6DOF_MDH/*.*"
+        "USER/Algorithm/Kinematic_6DOF_SDH/*.*"
         #"USER/Algorithm/MahonyAHRS/*.*"
         "USER/Algorithm/MyType/*.*"
         "USER/Algorithm/PID/*.*"

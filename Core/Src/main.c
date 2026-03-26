@@ -153,14 +153,6 @@ int main(void)
         Error_Handler();
     }
 
-
-//    write_motor_data(motor[Motor1].id, 10, mit_mode, 0, 0, 0);
-//	write_motor_data(motor[Motor1].id, 35, CAN_BR_5M, 0, 0, 0);
-//    	read_motor_data(motor[Motor1].id, RID_CAN_BR);
-//    dm_motor_disable(&hfdcan2, &motor[Motor1]);
-//    save_motor_data(motor[Motor1].id, 10);
-//    HAL_TIM_Base_Start_IT(&htim3);
-//	read_all_motor_data(&motor[Motor1]);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
