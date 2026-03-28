@@ -49,6 +49,9 @@
 #define MOTOR_1_MIN_LIMIT (-2.4f)
 #define MOTOR_1_MAX_LIMIT ( 2.4f)
 
+#define POSITION_TOLERANCE  (1e-4f)
+#define ORIENTATION_TOLERANCE (1e-4f)
+
 typedef struct {
     // 此处按理来说应该是theta，但由于机械编码器安装错位或者反相，可能导致多一个或者少一个PI/2的偏置补偿
     // 所以此处先写theta_offset，则公式为：theta = joint[i] + arm_sdh_table[i].theta_offset;
@@ -59,7 +62,6 @@ typedef struct {
     float alpha;   // DH参数中的α（连杆扭转角）
 } SDH_Param_t;
 
-extern const SDH_Param_t arm_sdh_table[6];
 
 typedef struct {
     float X, Y, Z;   // 位置
@@ -68,8 +70,6 @@ typedef struct {
     float R[9];      // 3x3旋转矩阵，按行存储
     bool hasR;  // 校验是否保存了旋转矩阵
 } Pose6D_t;
-
-#define IK_MAX_SOLUTIONS 8
 
 typedef struct {
     float q[6];
@@ -85,6 +85,14 @@ typedef struct {
 
 bool SDH_FK_ToPose6D(const SDH_Param_t table[6], const float q[6], Pose6D_t *pose);
 
+#define IK_MAX_SOLUTIONS 8
+extern const SDH_Param_t arm_sdh_table[6];
+extern const JointLimit_t limit;
+
+void Pose_AddOffsetInFrame6(const Pose6D_t *pose_6,
+                            const float offset_6[3],
+                            Pose6D_t *pose_out);
+
 void IK_Solve_Q123_All(const SDH_Param_t *table,
                        const float pw[3],
                        const float q_last[6],
@@ -98,6 +106,7 @@ int IK_Check_JointLimit(const float q[6], const JointLimit_t *limit);
 int IK_Solution_Validate(const SDH_Param_t *table,
                          const float q[6],
                          const Pose6D_t *target,
+                         const float wrist_offset[3],
                          float pos_tol,
                          float ori_tol);
 
@@ -108,6 +117,7 @@ void IK_Select_Best(IKCandidate_t cand[],
 
 bool IK_Evaluate_Solution_Error(const SDH_Param_t *table,
                                 const float q[6],
+                                const float wrist_offset[3],
                                 const Pose6D_t *target,
                                 float *pos_err,
                                 float *ori_err);

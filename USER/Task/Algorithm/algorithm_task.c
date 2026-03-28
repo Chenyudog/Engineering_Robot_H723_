@@ -94,27 +94,8 @@ int IKSOLVE(void)
     const SDH_Param_t *table = arm_sdh_table;
     float wrist_offset[3] = {0.0f, 0.0f, 0.0f};
 
-    JointLimit_t limit = {
-            {
-                    MOTOR_1_MIN_LIMIT,
-                    MOTOR_2_MIN_LIMIT,
-                    MOTOR_3_MIN_LIMIT,
-                    MOTOR_4_MIN_LIMIT,
-                    MOTOR_5_MIN_LIMIT,
-                    MOTOR_6_MIN_LIMIT
-            },
-            {
-                    MOTOR_1_MAX_LIMIT,
-                    MOTOR_2_MAX_LIMIT,
-                    MOTOR_3_MAX_LIMIT,
-                    MOTOR_4_MAX_LIMIT,
-                    MOTOR_5_MAX_LIMIT,
-                    MOTOR_6_MAX_LIMIT
-            }
-    };
-
-    float pos_tol = 1e-4f;
-    float ori_tol = 1e-4f;
+    float pos_tol = POSITION_TOLERANCE;
+    float ori_tol = ORIENTATION_TOLERANCE;
 
     float q_init[6] = {0};
     float q_last[6] = {0};

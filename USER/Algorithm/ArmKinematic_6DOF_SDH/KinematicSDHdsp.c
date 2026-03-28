@@ -8,15 +8,42 @@
 // q[6] 要传弧度
 // theta_offset 也必须是弧度
 // alpha 也必须是弧度
+//const SDH_Param_t arm_sdh_table[6] = {
+//        {0.0f, 0.0f,   0.0f,  -M_PI_2},
+//        {0.0f, 0.0f,   0.432f, 0.0f},
+//        {0.0f, 0.149f, 0.02f,   -M_PI_2},
+//        {0.0f, 0.433f, 0.0f,   M_PI_2},
+//        {0.0f, 0.0f,   0.0f,   -M_PI_2},
+//        {0.0f, 0.0f,   0.0f,   0.0f}
+//};
+
 const SDH_Param_t arm_sdh_table[6] = {
-        {0.0f, 0.0f,   0.0f,  -M_PI_2},
-        {0.0f, 0.0f,   0.432f, 0.0f},
-        {0.0f, 0.149f, 0.02f,   -M_PI_2},
-        {0.0f, 0.433f, 0.0f,   M_PI_2},
-        {0.0f, 0.0f,   0.0f,   -M_PI_2},
-        {0.0f, 0.0f,   0.0f,   0.0f}
+        {0.0f,    0.0f,     0.0f,      -M_PI_2},
+        {0.0f,    0.0f,     0.295f,     0.0f},
+        {0.0f,    0.05765f, 0.027098f, -M_PI_2},
+        {0.0f,    0.245f,   0.0f,       M_PI_2},
+        {0.0f,    0.0f,     0.0f,      -M_PI_2},
+        {0.0f,    0.0f,     0.0f,       0.0f}
 };
 
+const JointLimit_t limit = {
+        {
+                MOTOR_1_MIN_LIMIT,
+                MOTOR_2_MIN_LIMIT,
+                MOTOR_3_MIN_LIMIT,
+                MOTOR_4_MIN_LIMIT,
+                MOTOR_5_MIN_LIMIT,
+                MOTOR_6_MIN_LIMIT
+        },
+        {
+                MOTOR_1_MAX_LIMIT,
+                MOTOR_2_MAX_LIMIT,
+                MOTOR_3_MAX_LIMIT,
+                MOTOR_4_MAX_LIMIT,
+                MOTOR_5_MAX_LIMIT,
+                MOTOR_6_MAX_LIMIT
+        }
+};
 /**
  * @brief 旋转矩阵转欧拉角（Z-Y-X顺序）（YAW PITCH ROLL）（YPR）
  * @param _rotationM 输入3x3旋转矩阵
@@ -417,6 +444,23 @@ static bool IK_TargetPoseToR06Pw(const Pose6D_t *target,
 }
 
 
+void Pose_AddOffsetInFrame6(const Pose6D_t *pose_6,
+                            const float offset_6[3],
+                            Pose6D_t *pose_out)
+{
+    float dx, dy, dz;
+
+    *pose_out = *pose_6;
+
+    dx = pose_6->R[0] * offset_6[0] + pose_6->R[1] * offset_6[1] + pose_6->R[2] * offset_6[2];
+    dy = pose_6->R[3] * offset_6[0] + pose_6->R[4] * offset_6[1] + pose_6->R[5] * offset_6[2];
+    dz = pose_6->R[6] * offset_6[0] + pose_6->R[7] * offset_6[1] + pose_6->R[8] * offset_6[2];
+
+    pose_out->X += dx;
+    pose_out->Y += dy;
+    pose_out->Z += dz;
+}
+
 void IK_Solve_Q123_All(const SDH_Param_t *table,
                        const float pw[3],
                        const float q_last[6],
@@ -804,21 +848,27 @@ int IK_Check_JointLimit(const float q[6], const JointLimit_t *limit)
 
 bool IK_Evaluate_Solution_Error(const SDH_Param_t *table,
                                 const float q[6],
+                                const float wrist_offset[3],
                                 const Pose6D_t *target,
                                 float *pos_err,
                                 float *ori_err)
 {
-    Pose6D_t fk_pose;
+    Pose6D_t fk_pose_6;
+    Pose6D_t fk_pose_tool;
     float target_R[9];
     float dx, dy, dz;
 
-    if ((table == NULL) || (q == NULL) || (target == NULL)) {
+    if ((table == NULL) || (q == NULL) || (target == NULL) || (wrist_offset == NULL)) {
         return false;
     }
 
-    if (!SDH_FK_ToPose6D(table, q, &fk_pose)) {
+    /* 先求 T06 / 腕心位姿 */
+    if (!SDH_FK_ToPose6D(table, q, &fk_pose_6)) {
         return false;
     }
+
+    /* 再加上工具偏置，得到工具中心位姿 */
+    Pose_AddOffsetInFrame6(&fk_pose_6, wrist_offset, &fk_pose_tool);
 
     if (target->hasR) {
         memcpy(target_R, target->R, 9 * sizeof(float));
@@ -830,16 +880,16 @@ bool IK_Evaluate_Solution_Error(const SDH_Param_t *table,
         EulerAngleToRotMat(target_euler, target_R);
     }
 
-    dx = fk_pose.X - target->X;
-    dy = fk_pose.Y - target->Y;
-    dz = fk_pose.Z - target->Z;
+    dx = fk_pose_tool.X - target->X;
+    dy = fk_pose_tool.Y - target->Y;
+    dz = fk_pose_tool.Z - target->Z;
 
     if (pos_err) {
         *pos_err = sqrtf(dx * dx + dy * dy + dz * dz);
     }
 
     if (ori_err) {
-        *ori_err = IK_RotationAngleError(fk_pose.R, target_R);
+        *ori_err = IK_RotationAngleError(fk_pose_tool.R, target_R);
     }
 
     return true;
@@ -856,13 +906,14 @@ bool IK_Evaluate_Solution_Error(const SDH_Param_t *table,
  */
 static bool Validate_Solution_Internal(const SDH_Param_t *table,
                                        const float q[6],
+                                       const float wrist_offset[3],
                                        const Pose6D_t *target,
                                        float pos_tol,
                                        float ori_tol)
 {
     float pos_err, ori_err;
 
-    if (!IK_Evaluate_Solution_Error(table, q, target, &pos_err, &ori_err)) {
+    if (!IK_Evaluate_Solution_Error(table, q, wrist_offset, target, &pos_err, &ori_err)) {
         return false;
     }
 
@@ -873,10 +924,11 @@ static bool Validate_Solution_Internal(const SDH_Param_t *table,
 int IK_Solution_Validate(const SDH_Param_t *table,
                          const float q[6],
                          const Pose6D_t *target,
+                         const float wrist_offset[3],
                          float pos_tol,
                          float ori_tol)
 {
-    return Validate_Solution_Internal(table, q, target, pos_tol, ori_tol);
+    return Validate_Solution_Internal(table, q, wrist_offset, target, pos_tol, ori_tol);
 }
 
 void IK_Select_Best(IKCandidate_t cand[],
@@ -1120,6 +1172,7 @@ int IK_Solve_All(const SDH_Param_t *table,
             !IK_Solution_Validate(table,
                                   local_cand[i].q,
                                   target,
+                                  wrist_offset,
                                   pos_tol,
                                   ori_tol)) {
             local_cand[i].valid = 0;

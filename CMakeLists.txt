@@ -101,8 +101,8 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Algorithm/Filter
         USER/Algorithm/KalmanFilter
         USER/Algorithm/KalmanFilterOne
-        #USER/Algorithm/Kinematic_6DOF_MDH
-        USER/Algorithm/Kinematic_6DOF_SDH
+        #USER/Algorithm/ArmKinematic_6DOF_MDH
+        USER/Algorithm/ArmKinematic_6DOF_SDH
         #USER/Algorithm/MahonyAHRS
         USER/Algorithm/MyType
         USER/Algorithm/PID
@@ -156,8 +156,8 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Algorithm/Filter/*.*"
         "USER/Algorithm/KalmanFilter/*.*"
         "USER/Algorithm/KalmanFilterOne/*.*"
-        #"USER/Algorithm/Kinematic_6DOF_MDH/*.*"
-        "USER/Algorithm/Kinematic_6DOF_SDH/*.*"
+        #"USER/Algorithm/ArmKinematic_6DOF_MDH/*.*"
+        "USER/Algorithm/ArmKinematic_6DOF_SDH/*.*"
         #"USER/Algorithm/MahonyAHRS/*.*"
         "USER/Algorithm/MyType/*.*"
         "USER/Algorithm/PID/*.*"
