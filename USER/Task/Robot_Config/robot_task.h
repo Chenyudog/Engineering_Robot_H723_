@@ -38,6 +38,41 @@
 #endif /* BSP_USING_REFEREE_TASK */
 
 
+/** -------------------------------- Algorithm_Task Topics_Msg ------------------------------- **/
+struct Algorithm_Task_msg
+{
+    // IMU量测值
+    float gyro[3];  // 角速度
+    float accel[3]; // 加速度
+    float motion_accel_b[3]; // 机体坐标加速度
+    // 位姿
+    float roll;
+    float pitch;
+    float yaw;
+    float yaw_total_angle;
+};
+/** -------------------------------- Algorithm_Task Topics_Msg ------------------------------- **/
+
+/** -------------------------------- DMmotor_Task Topics_Msg ------------------------------- **/
+typedef struct
+{
+    uint8_t id;
+    uint8_t state;
+    float pos_deg;      // 你当前代码里 pos 已经是度
+    float vel_rad_s;    // vel 目前是 rad/s
+    float tor_nm;       // tor
+    float mos_temp;
+    float coil_temp;
+} dm_joint_feedback_t;
+
+typedef struct
+{
+    uint32_t update_mask;      // 哪些电机本周期更新过
+    uint32_t tick_ms;          // 时间戳，可选
+    dm_joint_feedback_t joint[7];   // 0~5 对应关节1~6，6对应夹爪7
+} dm_arm_feedback_msg_t;
+/** -------------------------------- DMmotor_Task Topics_Msg ------------------------------- **/
+
 /** -------------------------------- Ins_Task Topics_Msg ------------------------------- **/
 struct ins_msg
 {

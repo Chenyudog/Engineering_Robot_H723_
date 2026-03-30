@@ -139,8 +139,6 @@ int IK_Solve_All(const SDH_Param_t *table,
                  int *cand_count_out);
 
 #endif //CTRBOARD_H7_ALL_KINEMATICSDHDSP_H
-
-
 //
 // Created by Áõ¼Î¿¡ on 26-3-6.
 //

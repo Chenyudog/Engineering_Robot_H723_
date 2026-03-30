@@ -115,9 +115,7 @@ uint8_t pub_push_msg(publisher_t *pub, void *data){
 //        rt_hw_interrupt_enable(level);
         return 0;
     }
-    taskENTER_CRITICAL();
     memcpy(pub->tp->msg, data, pub->len);
-    taskEXIT_CRITICAL();
     xSemaphoreGive(pub->tp->sem);
 
 //    rt_hw_interrupt_enable(level);
@@ -133,8 +131,17 @@ uint8_t pub_push_msg(publisher_t *pub, void *data){
  */
 uint8_t sub_get_msg(subscriber_t *sub, void *data){
     /* 关中断保护（可选） */
-    taskENTER_CRITICAL();
+//    rt_base_t level;
+//    level = rt_hw_interrupt_disable();
+
+//    if (rt_sem_take(sub->tp->sem, RT_WAITING_NO)) {
+//        LOG_W("take sem failed!");
+//            rt_hw_interrupt_enable(level);
+//        return 0;
+//    }
     memcpy(data, sub->tp->msg, sub->len);
-    taskEXIT_CRITICAL();
+//    rt_sem_release(sub->tp->sem);
+
+//    rt_hw_interrupt_enable(level);
     return 1;
 }

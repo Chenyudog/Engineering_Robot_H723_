@@ -21,19 +21,13 @@
 #include "cmd_task.h"
 #include "msg_freertos.h"
 #include "transmission_task.h"
-#include "robot_task.h"
-
 /////修改电机正负号在下面的函数修改
 static int8_t auto_state_effect_key = 0;///没有想好用什么实现一键开启，所以先用这个变量替代
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static struct pc_cmd_arm_msg dm_receive_pc_cmd_arm_msg_data = {0};
 static subscriber_t *subscribe_cmd_pc_arm_topic;
-
-static dm_arm_feedback_msg_t dm_arm_feedback_pub_msg = {0};
-static publisher_t *publish_dm_arm_feedback_topic = NULL;
 extern sbus_data_t sbus_data_fdb;
-
 static void arm_pub_init(void);
 static void arm_sub_init(void);
 static void arm_pub_push(void);
@@ -232,7 +226,7 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-        arm_pub_push();
+//        chassis_pub_push();
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
         vTaskDelay(1);
     }
@@ -245,7 +239,7 @@ void DMmotorTask_Entry(void const * argument)
  */
 static void arm_pub_init(void)
 {
-    publish_dm_arm_feedback_topic = pub_register("dm_arm_feedback_pub", sizeof(dm_arm_feedback_msg_t));
+
 }
 
 /**
@@ -256,46 +250,12 @@ static void arm_sub_init(void)
     subscribe_cmd_pc_arm_topic = sub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
 }
 
-static void dm_feedback_cache_update(void)
-{
-    taskENTER_CRITICAL();
-
-    dm_arm_feedback_pub_msg.tick_ms = (uint32_t)dwt_get_time_ms();
-
-    dm_arm_feedback_pub_msg.joint[0].id        = motor[Motor1].para.id;
-    dm_arm_feedback_pub_msg.joint[0].state     = motor[Motor1].para.state;
-    dm_arm_feedback_pub_msg.joint[0].pos_deg   = motor[Motor1].para.pos;
-    dm_arm_feedback_pub_msg.joint[0].vel_rad_s = motor[Motor1].para.vel;
-    dm_arm_feedback_pub_msg.joint[0].tor_nm    = motor[Motor1].para.tor;
-    dm_arm_feedback_pub_msg.joint[0].mos_temp  = motor[Motor1].para.Tmos;
-    dm_arm_feedback_pub_msg.joint[0].coil_temp = motor[Motor1].para.Tcoil;
-
-    dm_arm_feedback_pub_msg.joint[1].id        = motor[Motor2].para.id;
-    dm_arm_feedback_pub_msg.joint[1].state     = motor[Motor2].para.state;
-    dm_arm_feedback_pub_msg.joint[1].pos_deg   = motor[Motor2].para.pos;
-    dm_arm_feedback_pub_msg.joint[1].vel_rad_s = motor[Motor2].para.vel;
-    dm_arm_feedback_pub_msg.joint[1].tor_nm    = motor[Motor2].para.tor;
-    dm_arm_feedback_pub_msg.joint[1].mos_temp  = motor[Motor2].para.Tmos;
-    dm_arm_feedback_pub_msg.joint[1].coil_temp = motor[Motor2].para.Tcoil;
-
-    dm_arm_feedback_pub_msg.joint[2].id        = motor[Motor3].para.id;
-    dm_arm_feedback_pub_msg.joint[2].state     = motor[Motor3].para.state;
-    dm_arm_feedback_pub_msg.joint[2].pos_deg   = motor[Motor3].para.pos;
-    dm_arm_feedback_pub_msg.joint[2].vel_rad_s = motor[Motor3].para.vel;
-    dm_arm_feedback_pub_msg.joint[2].tor_nm    = motor[Motor3].para.tor;
-    dm_arm_feedback_pub_msg.joint[2].mos_temp  = motor[Motor3].para.Tmos;
-    dm_arm_feedback_pub_msg.joint[2].coil_temp = motor[Motor3].para.Tcoil;
-    // Motor3~Motor7 同理复制
-
-    taskEXIT_CRITICAL();
-}
 /**
  * @brief chassis 线程中所有发布者推送更新话题
  */
 static void arm_pub_push(void)
 {
-    dm_feedback_cache_update();
-    pub_push_msg(publish_dm_arm_feedback_topic, &dm_arm_feedback_pub_msg);
+
 }
 /**
  * @brief chassis 线程中所有订阅者获取更新话题

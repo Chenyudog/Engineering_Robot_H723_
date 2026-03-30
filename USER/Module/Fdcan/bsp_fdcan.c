@@ -66,13 +66,14 @@ void bsp_can_init(void)
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
-    //HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
-    //HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
-    //HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
+    // 开启关节电机读取中断
+    HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
-    //HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
-    //HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
-    //HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
 }
 /**
@@ -368,226 +369,33 @@ void fdcan2_process_callback(void)
 {
     uint16_t rec_id;
     uint8_t rx_data[8] = {0};
-    static float motor1_buf[5] = {0.0f};
-    static uint8_t motor1_buf_idx = 0;
-    static float motor2_buf[5] = {0.0f};
-    static uint8_t motor2_buf_idx = 0;
-    static float motor3_buf[5] = {0.0f};
-    static uint8_t motor3_buf_idx = 0;
-    static float motor4_buf[5] = {0.0f};
-    static uint8_t motor4_buf_idx = 0;
-    static float motor5_buf[5] = {0.0f};
-    static uint8_t motor5_buf_idx = 0;
-    static float motor6_buf[5] = {0.0f};
-    static uint8_t motor6_buf_idx = 0;
-
+    // 取出一帧fdcan2中FIFO 0的原始数据帧，开始解包函数
     fdcanx_receive_FIFO0(&hfdcan2, &rec_id, rx_data);//取出接收到的数据帧
+    // 获取电机ID号
     rec_id = (rx_data[0]) & 0x0F;
     switch (rec_id) {
-//        case 1: {
-//            float raw_pos;
-//            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
-//            dm_motor_fbdata(&motor[Motor1], rx_data);
-//            raw_pos = motor[Motor1].para.pos;
-//
-//            motor1_buf[motor1_buf_idx] = raw_pos;
-//            motor1_buf_idx = (motor1_buf_idx + 1) % 5;
-//
-//            float sorted_buf[5];
-//            for (int i = 0; i < 5; i++)
-//            {
-//                sorted_buf[i] = motor1_buf[i];
-//            }
-//
-//            for (int i = 0; i < 4; i++)
-//            {
-//                for (int j = 0; j < 4 - i; j++)
-//                {
-//                    if (sorted_buf[j] > sorted_buf[j + 1])
-//                    {
-//                        float temp = sorted_buf[j];
-//                        sorted_buf[j] = sorted_buf[j + 1];
-//                        sorted_buf[j + 1] = temp;
-//                    }
-//                }
-//            }
-//
-//            motor[Motor1].para.pos = sorted_buf[2];
-//            if (motor[Motor1].para.pos > MOTOR_1_MAX_LIMIT*180.0f/PI)
-//            {
-//                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-//            }
-//            else if (motor[Motor1].para.pos < MOTOR_1_MIN_LIMIT*180.0f/PI)
-//            {
-//                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-//            }
-//            break;
-//        }
-//        case 2: {
-//            float raw_pos;
-//            motor[Motor2].para.last_pos = motor[Motor2].para.pos;
-//            dm_motor_fbdata(&motor[Motor2], rx_data);
-//            raw_pos = motor[Motor2].para.pos;
-//
-//            motor2_buf[motor2_buf_idx] = raw_pos;
-//            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
-//
-//            float sorted_buf[5];
-//            for (int i = 0; i < 5; i++)
-//            {
-//                sorted_buf[i] = motor2_buf[i];
-//            }
-//
-//            for (int i = 0; i < 4; i++)
-//            {
-//                for (int j = 0; j < 4 - i; j++)
-//                {
-//                    if (sorted_buf[j] > sorted_buf[j + 1])
-//                    {
-//                        float temp = sorted_buf[j];
-//                        sorted_buf[j] = sorted_buf[j + 1];
-//                        sorted_buf[j + 1] = temp;
-//                    }
-//                }
-//            }
-//
-//            motor[Motor2].para.pos = sorted_buf[2];
-//            if (motor[Motor2].para.pos > MOTOR_2_MAX_LIMIT*180.0f/PI)
-//            {
-//                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-//            }
-//            else if (motor[Motor2].para.pos < MOTOR_2_MIN_LIMIT*180.0f/PI)
-//            {
-//                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-//            }
-//            break;
-//        }
-
-        case 3: {
-            float raw_pos;
-            motor[Motor3].para.last_pos = motor[Motor3].para.pos;
+        case 0x03: {
+            // 调用关节电机解包函数，解出位置速度和力矩的值，并存入到对应的结构体中
             dm_motor_fbdata(&motor[Motor3], rx_data);
-            raw_pos = motor[Motor3].para.pos;
-
-            motor3_buf[motor3_buf_idx] = raw_pos;
-            motor3_buf_idx = (motor3_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor3_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor3].para.pos = sorted_buf[2];
-            if (motor[Motor3].para.pos > MOTOR_3_MAX_LIMIT*180.0f/PI)
-                motor[Motor3].para.pos = MOTOR_3_MAX_LIMIT*180.0f/PI;
-            else if (motor[Motor3].para.pos < MOTOR_3_MIN_LIMIT*180.0f/PI)
-                motor[Motor3].para.pos = MOTOR_3_MIN_LIMIT*180.0f/PI;
             break;
         }
 
-        case 4: {
-            float raw_pos;
-            motor[Motor4].para.last_pos = motor[Motor4].para.pos;
+        case 0x04: {
             dm_motor_fbdata(&motor[Motor4], rx_data);
-            raw_pos = motor[Motor4].para.pos;
-
-            motor4_buf[motor4_buf_idx] = raw_pos;
-            motor4_buf_idx = (motor4_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor4_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor4].para.pos = sorted_buf[2];
-            if (motor[Motor4].para.pos > MOTOR_4_MAX_LIMIT*180.0f/PI)
-                motor[Motor4].para.pos = MOTOR_4_MAX_LIMIT*180.0f/PI;
-            else if (motor[Motor4].para.pos < MOTOR_4_MIN_LIMIT*180.0f/PI)
-                motor[Motor4].para.pos = MOTOR_4_MIN_LIMIT*180.0f/PI;
             break;
         }
 
-        case 5: {
-            float raw_pos;
-            motor[Motor5].para.last_pos = motor[Motor5].para.pos;
+        case 0x05: {
             dm_motor_fbdata(&motor[Motor5], rx_data);
-            raw_pos = motor[Motor5].para.pos;
-
-            motor5_buf[motor5_buf_idx] = raw_pos;
-            motor5_buf_idx = (motor5_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor5_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor5].para.pos = sorted_buf[2];
-            if (motor[Motor5].para.pos > MOTOR_5_MAX_LIMIT*180.0f/PI)
-                motor[Motor5].para.pos = MOTOR_5_MAX_LIMIT*180.0f/PI;
-            else if (motor[Motor5].para.pos < MOTOR_5_MIN_LIMIT*180.0f/PI)
-                motor[Motor5].para.pos = MOTOR_5_MIN_LIMIT*180.0f/PI;
             break;
         }
 
-        case 6: {
-            float raw_pos;
-            motor[Motor6].para.last_pos = motor[Motor6].para.pos;
+        case 0x06: {
             dm_motor_fbdata(&motor[Motor6], rx_data);
-            raw_pos = motor[Motor6].para.pos;
-
-            motor6_buf[motor6_buf_idx] = raw_pos;
-            motor6_buf_idx = (motor6_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor6_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor6].para.pos = sorted_buf[2];
-            if (motor[Motor6].para.pos > PI*180.0f/PI)
-                motor[Motor6].para.pos = PI*180.0f/PI;
-            else if (motor[Motor6].para.pos < -PI*180.0f/PI)
-                motor[Motor6].para.pos = -PI*180.0f/PI;
             break;
         }
 
-        case 7: {//夹爪注重于力矩控制故不需要位置控制
+        case 0x07: {//夹爪注重于力矩控制故不需要位置控制
             dm_motor_fbdata(&motor[Motor7], rx_data);
             break;
         }
@@ -601,75 +409,16 @@ void fdcan3_process_callback(void)
 {
     uint16_t rec_id;
     uint8_t rx_data[8] = {0};
-
-    static float motor1_buf[5] = {0.0f};
-    static uint8_t motor1_buf_idx = 0;
-    static float motor2_buf[5] = {0.0f};
-    static uint8_t motor2_buf_idx = 0;
-
     fdcanx_receive_FIFO0(&hfdcan3, &rec_id, rx_data);
     rec_id = (rx_data[0]) & 0x0F;
-    if(rec_id == 1)//处理一号电机数据
+
+    if(rec_id == 0x01)//处理一号电机数据
     {
-        float raw_pos;
-        motor[Motor1].para.last_pos = motor[Motor1].para.pos;
         dm_motor_fbdata(&motor[Motor1], rx_data);
-        raw_pos = motor[Motor1].para.pos;
-
-        motor1_buf[motor1_buf_idx] = raw_pos;
-        motor1_buf_idx = (motor1_buf_idx + 1) % 5;
-
-        float sorted_buf[5];
-        for (int i = 0; i < 5; i++) {
-            sorted_buf[i] = motor1_buf[i];
-        }
-
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4 - i; j++) {
-                if (sorted_buf[j] > sorted_buf[j + 1]) {
-                    float temp = sorted_buf[j];
-                    sorted_buf[j] = sorted_buf[j + 1];
-                    sorted_buf[j + 1] = temp;
-                }
-            }
-        }
-
-        motor[Motor1].para.pos = sorted_buf[2];
-        if (motor[Motor1].para.pos > MOTOR_1_MAX_LIMIT * 180.0f / PI)
-            motor[Motor1].para.pos = MOTOR_1_MAX_LIMIT * 180.0f / PI;
-        else if (motor[Motor1].para.pos < MOTOR_1_MIN_LIMIT * 180.0f / PI)
-            motor[Motor1].para.pos = MOTOR_1_MIN_LIMIT * 180.0f / PI;
     }
-    else if(rec_id == 2)//处理一号电机数据
+    else if(rec_id == 0x02)//处理一号电机数据
     {
-        float raw_pos;
-        motor[Motor2].para.last_pos = motor[Motor2].para.pos;
         dm_motor_fbdata(&motor[Motor2], rx_data);
-        raw_pos = motor[Motor2].para.pos;
-
-        motor2_buf[motor2_buf_idx] = raw_pos;
-        motor2_buf_idx = (motor2_buf_idx + 1) % 5;
-
-        float sorted_buf[5];
-        for (int i = 0; i < 5; i++) {
-            sorted_buf[i] = motor2_buf[i];
-        }
-
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4 - i; j++) {
-                if (sorted_buf[j] > sorted_buf[j + 1]) {
-                    float temp = sorted_buf[j];
-                    sorted_buf[j] = sorted_buf[j + 1];
-                    sorted_buf[j + 1] = temp;
-                }
-            }
-        }
-
-        motor[Motor2].para.pos = sorted_buf[2];
-        if (motor[Motor2].para.pos > MOTOR_2_MAX_LIMIT * 180.0f / PI)
-            motor[Motor2].para.pos = MOTOR_2_MAX_LIMIT * 180.0f / PI;
-        else if (motor[Motor2].para.pos < MOTOR_2_MIN_LIMIT * 180.0f / PI)
-            motor[Motor2].para.pos = MOTOR_2_MIN_LIMIT * 180.0f / PI;
     }
 }
 

@@ -19,7 +19,7 @@
 #include "msg_freertos.h"
 #include "robot_task.h"
 #include "usbd_cdc_if.h"
-#include "dm_motor_drv.h"
+#include "dm_motor_ctrl.h"
 #include "cmd_task.h"
 
 #define MAX_USB_BUF_LEN     60
@@ -421,7 +421,9 @@ void set_data(uint8_t rx_byte)
     }
 }
 
-extern motor_t motor[num];
+// dm_motor_ctrl.h中含有motor_t motor[num];
+// extern motor_t motor[num];
+// 并且不允许在任务调度中直接读取motor[0].para.pos和motor[0].para.vel的值，读取之前应该先赋值给其他变量，在用另一个变量在任务中运行
 extern Gripper_mode_e gripper_state ;
 int8_t auto_state= 1;
 
