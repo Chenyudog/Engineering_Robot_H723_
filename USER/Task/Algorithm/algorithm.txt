@@ -200,13 +200,13 @@ static float update_time_scale(const JointMoveJPlanner_t *jp,
                                const float v_fb[3],
                                float scale_prev)
 {
-    const float q_tol[3] = {0.05f, 0.05f, 0.05f};   // rad
-    const float v_tol[3] = {0.40f, 0.40f, 0.40f};   // rad/s
+    const float q_tol[3] = {0.03f, 0.03f, 0.03f};   // rad
+    const float v_tol[3] = {0.20f, 0.20f, 0.20f};   // rad/s
 
     const float lambda = 0.3f;      // 速度误差权重
     const float k = 1.5f;           // 收缩强度
     const float scale_min = 0.15f;  // 最小时间缩放
-    const float alpha = 0.30f;      // 一阶滤波系数
+    const float alpha = 0.10f;      // 一阶滤波系数
 
     float eq_n = 0.0f;
     float ev_n = 0.0f;

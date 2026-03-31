@@ -6,7 +6,7 @@
 #define TIME_SYNC_TOTAL_PROGRESS   (1.0f)
 
 /* 小阈值：防止把过小的速度、加速度当成有效参数 */
-#define TIME_SYNC_EPS              (1e-6f)
+#define TIME_SYNC_EPS              (1e-4f)
 
 /* 限幅函数：把 x 限制在 [xmin, xmax] */
 static float clampf_local(float x, float xmin, float xmax)

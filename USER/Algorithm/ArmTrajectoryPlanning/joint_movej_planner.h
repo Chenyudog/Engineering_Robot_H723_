@@ -11,7 +11,7 @@
 #include "KinematicSDHdsp.h"
 
 #define JOINT_NUM       6         // 机械臂关节数量，这里固定为 6 轴
-#define JOINT_EPS_MOVE  1e-6f     // 判断“关节是否真的需要运动”的小阈值
+#define JOINT_EPS_MOVE  1e-4f     // 判断“关节是否真的需要运动”的小阈值
 
 /* MoveJ 规划器的运行状态 */
 typedef enum

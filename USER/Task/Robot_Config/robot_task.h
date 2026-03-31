@@ -39,18 +39,33 @@
 
 
 /** -------------------------------- Algorithm_Task Topics_Msg ------------------------------- **/
-struct Algorithm_Task_msg
+typedef struct
 {
-    // IMU量测值
-    float gyro[3];  // 角速度
-    float accel[3]; // 加速度
-    float motion_accel_b[3]; // 机体坐标加速度
-    // 位姿
-    float roll;
-    float pitch;
-    float yaw;
-    float yaw_total_angle;
-};
+    uint32_t seq;                 // 发布序号，每发一次+1
+    uint32_t tick_ms;             // 时间戳
+    uint8_t  valid;               // 1=本消息有效
+    uint8_t  planner_state;       // JP_IDLE / JP_RUNNING / JP_DONE / JP_FAULT
+
+    float q_ref_rad[6];           // 目标关节角(rad)
+    float v_ref_rad_s[6];         // 目标关节速度(rad/s)
+
+    float q_fb_rad[6];            // 可选：当前反馈角(rad)
+    float v_fb_rad_s[6];          // 可选：当前反馈速度(rad/s)
+} dm_arm_movej_target_msg_t;
+
+typedef struct
+{
+    uint32_t seq;                 // 发布序号，每发一次+1
+    uint32_t tick_ms;             // 时间戳
+    uint8_t  valid;               // 1=本消息有效
+    uint8_t  planner_state;       // JP_IDLE / JP_RUNNING / JP_DONE / JP_FAULT
+
+    float q_ref_rad[6];           // 目标关节角(rad)
+    float v_ref_rad_s[6];         // 目标关节速度(rad/s)
+
+    float q_fb_rad[6];            // 可选：当前反馈角(rad)
+    float v_fb_rad_s[6];          // 可选：当前反馈速度(rad/s)
+} movej_ref_msg_t;
 /** -------------------------------- Algorithm_Task Topics_Msg ------------------------------- **/
 
 /** -------------------------------- DMmotor_Task Topics_Msg ------------------------------- **/
@@ -58,7 +73,7 @@ typedef struct
 {
     uint8_t id;
     uint8_t state;
-    float pos_deg;      // 你当前代码里 pos 已经是度
+    float pos_rad;      // 位置弧度rad
     float vel_rad_s;    // vel 目前是 rad/s
     float tor_nm;       // tor
     float mos_temp;

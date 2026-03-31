@@ -67,6 +67,21 @@ struct arm_cmd_msg
     arm_mode_e last_mode;
 };
 
+/** 关节电机角度速度处理相关函数 **/
+#define POS_DEADBAND_RAD        0.0002f
+#define VEL_DEADBAND_RAD_S      0.009f
+#define MEDIAN_WIN_SIZE         5u  // 5窗口中值滤波
+
+typedef struct
+{
+    float buf[MEDIAN_WIN_SIZE];
+    uint8_t index;
+    uint8_t inited;
+} median_filter5_t;
+
+/** 关节电机角度速度处理相关函数 **/
+
+
 // 限幅函数
 float clamp_radians(float radians, float min_limit, float max_limit);
 
