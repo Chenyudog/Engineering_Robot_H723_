@@ -31,26 +31,26 @@
 #define Matrix_Transpose arm_mat_trans_f32// 矩阵转置
 #define Matrix_Inverse arm_mat_inverse_f32// 矩阵求逆
 
-#define MOTOR_6_MIN_LIMIT (-3.14f)
-#define MOTOR_6_MAX_LIMIT ( 3.14f)
+#define MOTOR_6_MIN_LIMIT (-0.654f)
+#define MOTOR_6_MAX_LIMIT (0.654f)
 
-#define MOTOR_5_MIN_LIMIT (-1.57f)
-#define MOTOR_5_MAX_LIMIT ( 1.57f)
+#define MOTOR_5_MIN_LIMIT (-0.4f)
+#define MOTOR_5_MAX_LIMIT (1.5f)
 
-#define MOTOR_4_MIN_LIMIT (-2.0f)
-#define MOTOR_4_MAX_LIMIT ( 2.0f)
+#define MOTOR_4_MIN_LIMIT (-3.14f)
+#define MOTOR_4_MAX_LIMIT ( 3.14f)
 
-#define MOTOR_3_MIN_LIMIT ( -2.4f)
-#define MOTOR_3_MAX_LIMIT ( 2.4f)
+#define MOTOR_3_MIN_LIMIT (-0.01f)
+#define MOTOR_3_MAX_LIMIT (3.14f)
 
-#define MOTOR_2_MIN_LIMIT (-2.0f)
-#define MOTOR_2_MAX_LIMIT (2.0f)
+#define MOTOR_2_MIN_LIMIT (-2.1f)
+#define MOTOR_2_MAX_LIMIT (0.01f)
 
 #define MOTOR_1_MIN_LIMIT (-2.4f)
 #define MOTOR_1_MAX_LIMIT ( 2.4f)
 
-#define POSITION_TOLERANCE  (1e-4f)
-#define ORIENTATION_TOLERANCE (1e-4f)
+#define POSITION_TOLERANCE  (1e-3f)
+#define ORIENTATION_TOLERANCE (1e-3f)
 
 typedef struct {
     // 此处按理来说应该是theta，但由于机械编码器安装错位或者反相，可能导致多一个或者少一个PI/2的偏置补偿
@@ -83,11 +83,15 @@ typedef struct {
     float max[6];
 } JointLimit_t;
 
+void Pose6D_SetFromXYZ_RollYawPitch(Pose6D_t *pose,
+                                    float x, float y, float z,
+                                    float roll, float yaw, float pitch);
+
 bool SDH_FK_ToPose6D(const SDH_Param_t table[6], const float q[6], Pose6D_t *pose);
 
 #define IK_MAX_SOLUTIONS 8
 extern const SDH_Param_t arm_sdh_table[6];
-extern const JointLimit_t limit;
+extern const JointLimit_t joint_limit;
 
 void Pose_AddOffsetInFrame6(const Pose6D_t *pose_6,
                             const float offset_6[3],
@@ -138,4 +142,19 @@ int IK_Solve_All(const SDH_Param_t *table,
                  IKCandidate_t cand_out[IK_MAX_SOLUTIONS],
                  int *cand_count_out);
 
+
+void Kinematic_MapInit(void);
+
+
+bool SDH_FK_FromEnc(const float q_enc[6], Pose6D_t *pose);
+
+
+int IK_Solve_All_Enc(const float wrist_offset[3],
+                     const Pose6D_t *target,
+                     const float q_last_enc[6],
+                     float pos_tol,
+                     float ori_tol,
+                     float q_best_enc[6],
+                     IKCandidate_t cand_out[IK_MAX_SOLUTIONS],
+                     int *cand_count_out);
 #endif //CTRBOARD_H7_ALL_KINEMATICSDHDSP_H

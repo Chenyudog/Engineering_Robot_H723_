@@ -18,15 +18,15 @@
 //};
 
 const SDH_Param_t arm_sdh_table[6] = {
-        {0.0f,    0.0f,     0.0f,      -M_PI_2},
-        {0.0f,    0.0f,     0.295f,     0.0f},
-        {0.0f,    -0.05765f, -0.027098f, -M_PI_2},
-        {0.0f,    0.245f,   0.0f,       M_PI_2},
-        {0.0f,    0.0f,     0.0f,      -M_PI_2},
-        {0.0f,    0.0f,     0.0f,       0.0f}
+        {0.0f,  0.0f,       0.0f,       -M_PI_2},
+        {-2.617993878f,  0.0f,       0.295f,      0.0f},
+        {1.0471975512f, -0.05765f,  -0.027098f,  -M_PI_2},
+        {0.0f,  0.245f,     0.0f,        M_PI_2},
+        {0.0f,  0.0f,       0.0f,       -M_PI_2},
+        {0.0f,  0.0f,       0.0f,        0.0f}
 };
 
-const JointLimit_t limit = {
+const JointLimit_t joint_limit = {
         {
                 MOTOR_1_MIN_LIMIT,
                 MOTOR_2_MIN_LIMIT,
@@ -99,6 +99,37 @@ static void EulerAngleToRotMat(const float* _eulerAngles, float* _rotationM) {
     _rotationM[6] = -sb;
     _rotationM[7] = cb * sc;
     _rotationM[8] = cb * cc;
+}
+
+/** 目标Pose6D转换函数，传入弧度制角度 **/
+void Pose6D_SetFromXYZ_RollYawPitch(Pose6D_t *pose,
+                                           float x, float y, float z,
+                                           float roll, float yaw, float pitch)
+{
+    if (pose == NULL)
+    {
+        return;
+    }
+
+    memset(pose, 0, sizeof(Pose6D_t));
+
+    pose->X = x;
+    pose->Y = y;
+    pose->Z = z;
+
+    /* 注意：用户输入顺序是 ROLL / YAW / PITCH
+     * 但结构体字段是 ROLL / PITCH / YAW
+     */
+    pose->ROLL  = roll;
+    pose->YAW   = yaw;
+    pose->PITCH = pitch;
+
+    pose->roll_deg  = roll  * RAD_TO_DEG;
+    pose->yaw_deg   = yaw   * RAD_TO_DEG;
+    pose->pitch_deg = pitch * RAD_TO_DEG;
+
+    /* 让IK内部自己根据欧拉角去生成旋转矩阵 */
+    pose->hasR = false;
 }
 
 static float IK_Clamp(float x, float min_v, float max_v)
@@ -1205,3 +1236,101 @@ int IK_Solve_All(const SDH_Param_t *table,
         return has_valid;
     }
 }
+
+
+static const float joint_sign[6] = { 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f };
+static const float joint_zero[6] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+static void JointLimit_EncToModel(const JointLimit_t *limit_enc,
+                                  const float sign_map[6],
+                                  const float q_zero[6],
+                                  JointLimit_t *limit_model)
+{
+    int i;
+    for (i = 0; i < 6; i++) {
+        float a = sign_map[i] * (limit_enc->min[i] - q_zero[i]);
+        float b = sign_map[i] * (limit_enc->max[i] - q_zero[i]);
+
+        if (a <= b) {
+            limit_model->min[i] = a;
+            limit_model->max[i] = b;
+        } else {
+            limit_model->min[i] = b;
+            limit_model->max[i] = a;
+        }
+    }
+}
+
+static void Joint_EncToModel(const float q_enc[6], float q_model[6])
+{
+    int i;
+    for (i = 0; i < 6; i++) {
+        q_model[i] = joint_sign[i] * (q_enc[i] - joint_zero[i]);
+    }
+}
+
+static void Joint_ModelToEnc(const float q_model[6], float q_enc[6])
+{
+    int i;
+    for (i = 0; i < 6; i++) {
+        q_enc[i] = joint_zero[i] + joint_sign[i] * q_model[i];
+    }
+}
+
+static JointLimit_t joint_limit_model;
+static bool joint_map_inited = false;
+
+void Kinematic_MapInit(void)
+{
+    JointLimit_EncToModel(&joint_limit, joint_sign, joint_zero, &joint_limit_model);
+    joint_map_inited = true;
+}
+
+
+bool SDH_FK_FromEnc(const float q_enc[6], Pose6D_t *pose)
+{
+    float q_model[6];
+
+    Joint_EncToModel(q_enc, q_model);
+    return SDH_FK_ToPose6D(arm_sdh_table, q_model, pose);
+}
+
+
+int IK_Solve_All_Enc(const float wrist_offset[3],
+                     const Pose6D_t *target,
+                     const float q_last_enc[6],
+                     float pos_tol,
+                     float ori_tol,
+                     float q_best_enc[6],
+                     IKCandidate_t cand_out[IK_MAX_SOLUTIONS],
+                     int *cand_count_out)
+{
+    float q_last_model[6];
+    float q_best_model[6];
+    int ok;
+
+    if (!joint_map_inited) {
+        Kinematic_MapInit();
+    }
+
+    Joint_EncToModel(q_last_enc, q_last_model);
+
+    ok = IK_Solve_All(arm_sdh_table,
+                      wrist_offset,
+                      target,
+                      q_last_model,
+                      &joint_limit_model,
+                      pos_tol,
+                      ori_tol,
+                      q_best_model,
+                      cand_out,
+                      cand_count_out);
+
+    if (!ok) {
+        return 0;
+    }
+
+    Joint_ModelToEnc(q_best_model, q_best_enc);
+    return 1;
+}
+

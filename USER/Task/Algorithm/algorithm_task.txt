@@ -71,7 +71,7 @@
 #define ALGO_INPUT_MODE_DEMO_POSE6D    4
 
 /* 在这里切换输入模式 */
-#define ALGO_INPUT_MODE                ALGO_INPUT_MODE_MANUAL_API
+#define ALGO_INPUT_MODE                ALGO_INPUT_MODE_DEMO_XYZRYP
 
 /* -------------------------------- 离散控制参数 -------------------------------- */
 #define ALGO_DISCRETE_QUEUE_CAPACITY   16u
@@ -260,7 +260,7 @@ static bool AlgorithmTask_IsSettled3FromOutput(const AlgoOutput_t *out)
         return false;
     }
 
-    for (int i = 0; i < JOINT_NUM; i++)
+    for (int i = 0; i < 6; i++)
     {
         float q_err = fabsf(out->q_fb[i] - out->q_ref[i]);
         float v_abs = fabsf(out->v_fb[i]);
@@ -360,7 +360,7 @@ static bool AlgorithmTask_EnqueuePose(const Pose6D_t *pose,
 
 float xxx = 0.0f;
 float yyy = 0.0f;
-float zzz = 0.0f;
+float zzz = 0.09f;
 /* ---------------------------- 目标来源填充 ---------------------------- */
 /* 根据当前输入模式，把“目标来源”统一送进离散队列 */
 
@@ -438,8 +438,6 @@ static void AlgorithmTask_SourceFillStep(const AlgoFeedback_t *fb, const AlgoOut
 #if (ALGO_INPUT_MODE == ALGO_INPUT_MODE_MANUAL_API)
     /* 手动API模式不自动生成目标；
        外部通过 AlgorithmTask_PostPoseTarget / XYZRYP 接口入队 */
-    AlgorithmTask_PostPoseTargetXYZRYP_Rad(xxx, yyy, zzz,
-                                           0.0f, 3.141592503f, -1.570796371f);
 #endif
 }
 

@@ -104,15 +104,15 @@ void arm_cmd_disable(void) {
 
 void arm_cmd_init(void) {
     if (arm_cmd.last_mode == ARM_ENABLE && arm_cmd.ctrl_mode == ARM_INIT) {
-        pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+        pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 1.2f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
-        pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
+        pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 1.2f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
 
         for(int i=2;i<6;i++)
         {
             dm_motor_enable(&hfdcan2, &motor[i]);
-            pos_ctrl(&hfdcan2, motor[i].id, 0, 0.7f); // 发送控制命令
+            pos_ctrl(&hfdcan2, motor[i].id, 0, 1.2f); // 发送控制命令
             vTaskDelay(200); // 延时，等待电机稳定
         }
         arm_cmd.last_mode = ARM_ENABLE;  //TODO:BUG一个
@@ -142,7 +142,7 @@ static subscriber_t *subscribe_movej_ref_topic;
 static movej_ref_msg_t dmmotor_subscribe_movej_ref_data;
 static uint32_t dmmotor_last_movej_seq = 0;
 
- float Kp_track = 2.5f;      // 先从小值开始调
+ float Kp_track = 2.7f;      // 先从小值开始调
  float Kv_track = 0.95f;
 
 static void DMmotor_apply_movej_ref(const movej_ref_msg_t *ref)
@@ -156,8 +156,8 @@ static void DMmotor_apply_movej_ref(const movej_ref_msg_t *ref)
     float pos_cmd[6];
     float vel_cmd[6];
 
-    const float v_min_follow = 0.2f; // 有误差时最小追赶速度
-    const float v_max_exec   = 3.0f;  // 执行层最大速度
+    const float v_min_follow = 0.4f; // 有误差时最小追赶速度
+    const float v_max_exec   = 6.0f;  // 执行层最大速度
     const float pos_tol      = 0.001f; // 约 0.57 度
     /* 无效轨迹，不发送 */
     if (ref == 0 || ref->valid == 0)
@@ -166,7 +166,7 @@ static void DMmotor_apply_movej_ref(const movej_ref_msg_t *ref)
     }
 
     // 此为上一个ms周期的误差，等会需要优先把反馈误差更新
-    for (uint8_t i = 0; i < 3; i++)
+    for (uint8_t i = 0; i < 6; i++)
     {
         pos_fdb[i] = dm_arm_feedback_pub_msg.joint[i].pos_rad;
         vel_fdb[i] = dm_arm_feedback_pub_msg.joint[i].vel_rad_s;
@@ -182,13 +182,13 @@ static void DMmotor_apply_movej_ref(const movej_ref_msg_t *ref)
     pos_ctrl(&hfdcan3, motor[Motor1].id, pos_cmd[0], vel_cmd[0]);
     pos_ctrl(&hfdcan3, motor[Motor2].id,  pos_cmd[1], vel_cmd[1]);
     pos_ctrl(&hfdcan2, motor[Motor3].id,  pos_cmd[2], vel_cmd[2]);
-//    pos_ctrl(&hfdcan2, motor[Motor4].id, pos_cmd[3], vel_cmd[3]);
-//    pos_ctrl(&hfdcan2, motor[Motor5].id, pos_cmd[4], vel_cmd[4]);
-//    pos_ctrl(&hfdcan2, motor[Motor6].id, pos_cmd[5], vel_cmd[5]);
+    pos_ctrl(&hfdcan2, motor[Motor4].id, pos_cmd[3], vel_cmd[3]);
+    pos_ctrl(&hfdcan2, motor[Motor5].id, pos_cmd[4], vel_cmd[4]);
+    pos_ctrl(&hfdcan2, motor[Motor6].id, pos_cmd[5], vel_cmd[5]);
 }
 
 /* 每个关节一个角度中值滤波器 */
-static median_filter5_t read_joint_pos_filter[3] = {0};
+static median_filter5_t read_joint_pos_filter[6] = {0};
 // 死区处理函数
 static inline float joint_deadband_apply(float x, float threshold)
 {
@@ -277,7 +277,7 @@ static void dm_feedback_cache_update(void)
     dm_arm_feedback_pub_msg.tick_ms = (uint32_t)dwt_get_time_ms();
     dm_arm_feedback_pub_msg.update_mask = 0;
 
-    for (uint8_t i = 0; i < 3; i++) {
+    for (uint8_t i = 0; i < 6; i++) {
         copy_one_joint_feedback_filtered(&dm_arm_feedback_pub_msg.joint[i],
                                 &motor[joint_motor_name[i]], i);
         dm_arm_feedback_pub_msg.update_mask |= (1u << i);  // 表示每个周期六个电机都更新
@@ -285,6 +285,10 @@ static void dm_feedback_cache_update(void)
 
     taskEXIT_CRITICAL();
 }
+
+float joint_pos[6] = {0};
+float joint_vel[6] = {0};
+
 /* -------------------------------- 线程入口 ------------------------------- */
 void DMmotorTask_Entry(void const * argument)
 {
@@ -303,19 +307,19 @@ void DMmotorTask_Entry(void const * argument)
 
     dm_motor_enable(&hfdcan3, &motor[Motor1]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 1.2f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     dm_motor_enable(&hfdcan3, &motor[Motor2]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 1.2f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     for(int i=2;i<6;i++)
     {
         dm_motor_enable(&hfdcan2, &motor[i]);
         vTaskDelay(200); // 延时，等待电机稳定
-        pos_ctrl(&hfdcan2, motor[i].id, 0, 0.7f); // 发送控制命令
+        pos_ctrl(&hfdcan2, motor[i].id, 0, 1.2f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
     }
     vTaskDelay(200); // 延时，等待电机稳定
@@ -324,7 +328,7 @@ void DMmotorTask_Entry(void const * argument)
 
     arm_cmd.ctrl_mode = ARM_ENABLE; // 使能机械臂
     arm_cmd.last_mode = ARM_ENABLE;
-
+    vTaskDelay(2000); // 延时，等待电机稳定
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
@@ -391,6 +395,7 @@ void DMmotorTask_Entry(void const * argument)
                 DMmotor_apply_movej_ref(&dmmotor_subscribe_movej_ref_data);
             }
         }
+
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
