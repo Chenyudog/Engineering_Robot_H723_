@@ -44,12 +44,9 @@ void dm_motor_init(void)
     // 12.5
     // 30
     // 28
-//    motor[Motor1].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
-//    motor[Motor1].tmp.VMAX = 10.0f;     // 速度映射范围（可调）
-//    motor[Motor1].tmp.TMAX = 50.0f;
     motor[Motor1].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
-    motor[Motor1].tmp.VMAX = 30.0f;     // 速度映射范围（可调）
-    motor[Motor1].tmp.TMAX = 28.0f;
+    motor[Motor1].tmp.VMAX = 10.0f;     // 速度映射范围（可调）
+    motor[Motor1].tmp.TMAX = 50.0f;
 
     // 初始化电机2
     motor[Motor2].id = 0x02;
@@ -60,12 +57,9 @@ void dm_motor_init(void)
     motor[Motor2].ctrl.pos_set = 0.0f;
     motor[Motor2].ctrl.kp_set = 0.5f;
     motor[Motor2].ctrl.kd_set = 0.1f;
-//    motor[Motor2].tmp.PMAX = 12.5f;
-//    motor[Motor2].tmp.VMAX = 10.0f;
-//    motor[Motor2].tmp.TMAX = 50.0f;
-    motor[Motor2].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
-    motor[Motor2].tmp.VMAX = 30.0f;     // 速度映射范围（可调）
-    motor[Motor2].tmp.TMAX = 10.0f;
+    motor[Motor2].tmp.PMAX = 12.5f;
+    motor[Motor2].tmp.VMAX = 10.0f;
+    motor[Motor2].tmp.TMAX = 50.0f;
 
     // 初始化电机3
     motor[Motor3].id = 0x03;
@@ -76,12 +70,9 @@ void dm_motor_init(void)
     motor[Motor3].ctrl.pos_set = 0.0f;
     motor[Motor3].ctrl.kp_set = 0.5f;
     motor[Motor3].ctrl.kd_set = 0.1f;
-//    motor[Motor3].tmp.PMAX = 12.5f;
-//    motor[Motor3].tmp.VMAX = 10.0f;
-//    motor[Motor3].tmp.TMAX = 50.0f;
     motor[Motor3].tmp.PMAX = 12.5f;
-    motor[Motor3].tmp.VMAX = 30.0f;
-    motor[Motor3].tmp.TMAX = 10.0f;
+    motor[Motor3].tmp.VMAX = 10.0f;
+    motor[Motor3].tmp.TMAX = 50.0f;
 
     // 初始化电机4
     motor[Motor4].id = 0x04;
