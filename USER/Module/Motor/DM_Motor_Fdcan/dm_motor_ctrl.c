@@ -31,9 +31,25 @@ void dm_motor_init(void)
     motor[Motor1].ctrl.pos_set = 0.0f;  // 初始位置
     motor[Motor1].ctrl.kp_set = 0.5f;   // 位置控制增益
     motor[Motor1].ctrl.kd_set = 0.1f;   // 速度控制增益
+    // PMAX参数决定系统对整数（离散值）的量化误差，转换成线性浮点数
+    // PMAX越大，则精度越差，每一个整数LBS都会引起更大的步进值，也就是误差，但同样的测量范围变大了
+    // PMAX越小，精度越高，测量范围变小
+    // PMAX值取决于编码端，STM32解码端必须和编码端保持一致
+    // 编码器端数据使用达妙串口助手查看
+    // 4310读取的值如下：
+    // motor[MotorX].tmp.PMAX = 12.5f;   // rad    0.00038148 rad/LSB
+    // motor[MotorX].tmp.VMAX = 30.0f;   // rad/s  0.014652 rad/s/LSB
+    // motor[MotorX].tmp.TMAX = 10.0f;   // N·m    0.004884 N·m/LSB
+    // 某一个4340读取的值如下：
+    // 12.5
+    // 30
+    // 28
+//    motor[Motor1].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
+//    motor[Motor1].tmp.VMAX = 10.0f;     // 速度映射范围（可调）
+//    motor[Motor1].tmp.TMAX = 50.0f;
     motor[Motor1].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
-    motor[Motor1].tmp.VMAX = 10.0f;     // 速度映射范围（可调）
-    motor[Motor1].tmp.TMAX = 50.0f;
+    motor[Motor1].tmp.VMAX = 30.0f;     // 速度映射范围（可调）
+    motor[Motor1].tmp.TMAX = 28.0f;
 
     // 初始化电机2
     motor[Motor2].id = 0x02;
@@ -44,9 +60,12 @@ void dm_motor_init(void)
     motor[Motor2].ctrl.pos_set = 0.0f;
     motor[Motor2].ctrl.kp_set = 0.5f;
     motor[Motor2].ctrl.kd_set = 0.1f;
-    motor[Motor2].tmp.PMAX = 12.5f;
-    motor[Motor2].tmp.VMAX = 10.0f;
-    motor[Motor2].tmp.TMAX = 50.0f;
+//    motor[Motor2].tmp.PMAX = 12.5f;
+//    motor[Motor2].tmp.VMAX = 10.0f;
+//    motor[Motor2].tmp.TMAX = 50.0f;
+    motor[Motor2].tmp.PMAX = 12.5f;    // 位置映射范围（可调）
+    motor[Motor2].tmp.VMAX = 30.0f;     // 速度映射范围（可调）
+    motor[Motor2].tmp.TMAX = 10.0f;
 
     // 初始化电机3
     motor[Motor3].id = 0x03;
@@ -57,9 +76,12 @@ void dm_motor_init(void)
     motor[Motor3].ctrl.pos_set = 0.0f;
     motor[Motor3].ctrl.kp_set = 0.5f;
     motor[Motor3].ctrl.kd_set = 0.1f;
+//    motor[Motor3].tmp.PMAX = 12.5f;
+//    motor[Motor3].tmp.VMAX = 10.0f;
+//    motor[Motor3].tmp.TMAX = 50.0f;
     motor[Motor3].tmp.PMAX = 12.5f;
-    motor[Motor3].tmp.VMAX = 10.0f;
-    motor[Motor3].tmp.TMAX = 50.0f;
+    motor[Motor3].tmp.VMAX = 30.0f;
+    motor[Motor3].tmp.TMAX = 10.0f;
 
     // 初始化电机4
     motor[Motor4].id = 0x04;

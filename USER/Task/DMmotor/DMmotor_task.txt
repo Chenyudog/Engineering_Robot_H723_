@@ -104,15 +104,15 @@ void arm_cmd_disable(void) {
 
 void arm_cmd_init(void) {
     if (arm_cmd.last_mode == ARM_ENABLE && arm_cmd.ctrl_mode == ARM_INIT) {
-        pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 1.2f); // 发送控制命令
+        pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
-        pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 1.2f); // 发送控制命令
+        pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
 
         for(int i=2;i<6;i++)
         {
             dm_motor_enable(&hfdcan2, &motor[i]);
-            pos_ctrl(&hfdcan2, motor[i].id, 0, 1.2f); // 发送控制命令
+            pos_ctrl(&hfdcan2, motor[i].id, 0, 0.7f); // 发送控制命令
             vTaskDelay(200); // 延时，等待电机稳定
         }
         arm_cmd.last_mode = ARM_ENABLE;  //TODO:BUG一个
@@ -182,9 +182,9 @@ static void DMmotor_apply_movej_ref(const movej_ref_msg_t *ref)
     pos_ctrl(&hfdcan3, motor[Motor1].id, pos_cmd[0], vel_cmd[0]);
     pos_ctrl(&hfdcan3, motor[Motor2].id,  pos_cmd[1], vel_cmd[1]);
     pos_ctrl(&hfdcan2, motor[Motor3].id,  pos_cmd[2], vel_cmd[2]);
-    pos_ctrl(&hfdcan2, motor[Motor4].id, pos_cmd[3], vel_cmd[3]);
-    pos_ctrl(&hfdcan2, motor[Motor5].id, pos_cmd[4], vel_cmd[4]);
-    pos_ctrl(&hfdcan2, motor[Motor6].id, pos_cmd[5], vel_cmd[5]);
+//    pos_ctrl(&hfdcan2, motor[Motor4].id, pos_cmd[3], vel_cmd[3]);
+//    pos_ctrl(&hfdcan2, motor[Motor5].id, pos_cmd[4], vel_cmd[4]);
+//    pos_ctrl(&hfdcan2, motor[Motor6].id, pos_cmd[5], vel_cmd[5]);
 }
 
 /* 每个关节一个角度中值滤波器 */
@@ -307,19 +307,19 @@ void DMmotorTask_Entry(void const * argument)
 
     dm_motor_enable(&hfdcan3, &motor[Motor1]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 1.2f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 0.7f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     dm_motor_enable(&hfdcan3, &motor[Motor2]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 1.2f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 0.7f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     for(int i=2;i<6;i++)
     {
         dm_motor_enable(&hfdcan2, &motor[i]);
         vTaskDelay(200); // 延时，等待电机稳定
-        pos_ctrl(&hfdcan2, motor[i].id, 0, 1.2f); // 发送控制命令
+        pos_ctrl(&hfdcan2, motor[i].id, 0, 0.7f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
     }
     vTaskDelay(200); // 延时，等待电机稳定
@@ -328,7 +328,7 @@ void DMmotorTask_Entry(void const * argument)
 
     arm_cmd.ctrl_mode = ARM_ENABLE; // 使能机械臂
     arm_cmd.last_mode = ARM_ENABLE;
-    vTaskDelay(2000); // 延时，等待电机稳定
+
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
@@ -395,7 +395,18 @@ void DMmotorTask_Entry(void const * argument)
                 DMmotor_apply_movej_ref(&dmmotor_subscribe_movej_ref_data);
             }
         }
-
+//        vTaskDelay(500);
+//        pos_ctrl(&hfdcan3, motor[Motor1].id, joint_pos[0], 0.2f);
+//        vTaskDelay(500);
+//        pos_ctrl(&hfdcan3, motor[Motor2].id,  joint_pos[1], 0.2f);
+//        vTaskDelay(500);
+//        pos_ctrl(&hfdcan2, motor[Motor3].id,  joint_pos[2], 0.2f);
+//        vTaskDelay(500);
+//        pos_ctrl(&hfdcan2, motor[Motor4].id, joint_pos[3], 0.2f);
+//        vTaskDelay(500);
+//        pos_ctrl(&hfdcan2, motor[Motor5].id,  joint_pos[4], 0.2f);
+//        vTaskDelay(500);
+//        pos_ctrl(&hfdcan2, motor[Motor6].id,  joint_pos[5], 0.2f);
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */

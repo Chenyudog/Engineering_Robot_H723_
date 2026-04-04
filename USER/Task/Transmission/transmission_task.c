@@ -19,7 +19,6 @@
 #include "msg_freertos.h"
 #include "robot_task.h"
 #include "usbd_cdc_if.h"
-#include "dm_motor_drv.h"
 #include "cmd_task.h"
 
 #define MAX_USB_BUF_LEN     60
@@ -40,11 +39,13 @@
 static struct ins_msg transmission_subscribe_ins_data;
 static struct cmd_chassis_msg receive_pc_cmd_chassis_data;
 static struct pc_cmd_arm_msg receive_pc_cmd_arm_msg_data;
+static dm_arm_feedback_msg_t transmission_subscribe_arm_feedback_data;
 
 static publisher_t *pc_cmd_arm_topic_publish;
 static publisher_t *pc_cmd_chassis_topic_publish;
 static subscriber_t *subscribe_ins_topic;
 static subscriber_t *subscribe_cmd_chassis_topic;
+static subscriber_t *subscribe_arm_feedback_topic;
 
 static uint8_t usb_txbuffer[MAX_USB_BUF_LEN] = {0};
 
@@ -60,11 +61,10 @@ static uint32_t sum_check = 0;
 static uint32_t addr_check = 0;
 
 
-static void transmission_topic_publish_init(void);
-static void transmission_topic_subscribe_init(void);
-static void pc_cmd_chassis_transmission_topic_publish_push(void);
-static void transmission_topic_subscribe_pull(void);
-static void pc_cmd_arm_transmission_topic_publish_push(void);
+static void transmission_topic_pub_init(void);
+static void transmission_topic_sub_init(void);
+static void transmission_topic_pub_push(void);
+static void transmission_topic_sub_pull(void);
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
@@ -88,8 +88,8 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
-    transmission_topic_subscribe_init();
-    transmission_topic_publish_init();
+    transmission_topic_sub_init();
+    transmission_topic_pub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     transmission_task_dt = dwt_get_delta(&transmission_task_dwt);
@@ -104,7 +104,7 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
 
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
-        transmission_topic_subscribe_pull();
+        transmission_topic_sub_pull();
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
@@ -118,49 +118,32 @@ void TransmissionTask_Entry(void const * argument)
         //发送数据给上位机
         //InsDataPack();
         //vTaskDelay(1);
+        //ArmJointDataPack();//发给上位机
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-
+        transmission_topic_pub_push();
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-        //ArmJointDataPack();//发给上位机
         vTaskDelay(10);
     }
 }
 /* -------------------------------- 线程结束 ------------------------------- */
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-static void transmission_topic_publish_init(void)
+static void transmission_topic_pub_init(void)
 {
     pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis_pub",sizeof(struct cmd_chassis_msg));
     pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
 }
 
-static void transmission_topic_subscribe_init(void)
+static void transmission_topic_sub_init(void)
 {
-        subscribe_ins_topic = sub_register("ins_pub", sizeof(struct ins_msg));
-        subscribe_cmd_chassis_topic = sub_register("cmd_ch_pub", sizeof(struct cmd_chassis_msg));
+    subscribe_ins_topic = sub_register("ins_pub", sizeof(struct ins_msg));
+    subscribe_cmd_chassis_topic = sub_register("cmd_ch_pub", sizeof(struct cmd_chassis_msg));
+    // 订阅关节反馈数据
+    subscribe_arm_feedback_topic = sub_register("dm_arm_feedback_pub", sizeof(dm_arm_feedback_msg_t));
 }
 
-static void pc_cmd_chassis_transmission_topic_publish_push(void)
-{
-        pub_push_msg(pc_cmd_chassis_topic_publish,&receive_pc_cmd_chassis_data);
-}
-
-static void pc_cmd_arm_transmission_topic_publish_push(void)
-{
-        pub_push_msg(pc_cmd_arm_topic_publish,&receive_pc_cmd_arm_msg_data);
-}
-
-static void transmission_topic_subscribe_pull(void)
-{
-        sub_get_msg(subscribe_ins_topic, &transmission_subscribe_ins_data);
-}
-
-
-/* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-
-/* -------------------------------- 线程间通讯数据包相关 ------------------------------- */
 void uppack_pc_cmd_chassis_data(void)
 {
     receive_pc_cmd_chassis_data.vx = (float)((Rx_data[4] << 0) |  // byte3占 31-24位
@@ -175,40 +158,57 @@ void uppack_pc_cmd_chassis_data(void)
                                              (Rx_data[25] << 8) |  // byte2占 23-16位
                                              (Rx_data[26] << 16)  |  // byte1占 15-8位
                                              (Rx_data[27] << 24)) / 10000.0f;    // byte0占 7-0位
-    pc_cmd_chassis_transmission_topic_publish_push();
 }
 
 void uppack_pc_cmd_arm_data(void)
 {
     //  /10000.0f与上位机约定好，因为传输float麻烦
     receive_pc_cmd_arm_msg_data.joint1_pos = (float)((Rx_data[4] << 0) |  // byte3占 31-24位
-                                             (Rx_data[5] << 8) |  // byte2占 23-16位
-                                             (Rx_data[6] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[7] << 24)) /10000.0f;    // byte0占 7-0位
+                                                     (Rx_data[5] << 8) |  // byte2占 23-16位
+                                                     (Rx_data[6] << 16)  |  // byte1占 15-8位
+                                                     (Rx_data[7] << 24)) /10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.joint2_pos = (float)((Rx_data[8] << 0) |  // byte3占 31-24位
-                                             (Rx_data[9] << 8) |  // byte2占 23-16位
-                                             (Rx_data[10] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[11] << 24)) /10000.0f;    // byte0占 7-0位
+                                                     (Rx_data[9] << 8) |  // byte2占 23-16位
+                                                     (Rx_data[10] << 16)  |  // byte1占 15-8位
+                                                     (Rx_data[11] << 24)) /10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.joint3_pos = (float)((Rx_data[12] << 0) |  // byte3占 31-24位
-                                             (Rx_data[13] << 8) |  // byte2占 23-16位
-                                             (Rx_data[14] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[15] << 24))/10000.0f;    // byte0占 7-0位
+                                                     (Rx_data[13] << 8) |  // byte2占 23-16位
+                                                     (Rx_data[14] << 16)  |  // byte1占 15-8位
+                                                     (Rx_data[15] << 24))/10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.joint4_pos = (float)((Rx_data[16] << 0) |  // byte3占 31-24位
-                                             (Rx_data[17] << 8) |  // byte2占 23-16位
-                                             (Rx_data[18] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[19] << 24)) /10000.0f;    // byte0占 7-0位
+                                                     (Rx_data[17] << 8) |  // byte2占 23-16位
+                                                     (Rx_data[18] << 16)  |  // byte1占 15-8位
+                                                     (Rx_data[19] << 24)) /10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.joint5_pos = (float)((Rx_data[20] << 0) |  // byte3占 31-24位
-                                             (Rx_data[21] << 8) |  // byte2占 23-16位
-                                             (Rx_data[22] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[23] << 24)) /10000.0f;    // byte0占 7-0位
+                                                     (Rx_data[21] << 8) |  // byte2占 23-16位
+                                                     (Rx_data[22] << 16)  |  // byte1占 15-8位
+                                                     (Rx_data[23] << 24)) /10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.joint6_pos = (float)((Rx_data[24] << 0) |  // byte3占 31-24位
-                                             (Rx_data[25] << 8) |  // byte2占 23-16位
-                                             (Rx_data[26] << 16)  |  // byte1占 15-8位
-                                             (Rx_data[27] << 24)) /10000.0f;    // byte0占 7-0位
+                                                     (Rx_data[25] << 8) |  // byte2占 23-16位
+                                                     (Rx_data[26] << 16)  |  // byte1占 15-8位
+                                                     (Rx_data[27] << 24)) /10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.gripper_ctrl = (Rx_data[28] << 0) ;
     receive_pc_cmd_arm_msg_data.auto_state = (Rx_data[29] << 0);
-    pc_cmd_arm_transmission_topic_publish_push();
 }
+
+static void transmission_topic_pub_push(void)
+{
+    uppack_pc_cmd_chassis_data();
+    pub_push_msg(pc_cmd_chassis_topic_publish,&receive_pc_cmd_chassis_data);
+    uppack_pc_cmd_arm_data();
+    pub_push_msg(pc_cmd_arm_topic_publish,&receive_pc_cmd_arm_msg_data);
+}
+
+static void transmission_topic_sub_pull(void)
+{
+    sub_get_msg(subscribe_ins_topic, &transmission_subscribe_ins_data);
+    sub_get_msg(subscribe_arm_feedback_topic, &transmission_subscribe_arm_feedback_data);
+}
+
+
+/* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
+
+/* -------------------------------- 线程间通讯数据包相关 ------------------------------- */
 
 void InsDataPack()
 {
@@ -421,12 +421,13 @@ void set_data(uint8_t rx_byte)
     }
 }
 
-extern motor_t motor[num];
+// dm_motor_ctrl.h中含有motor_t motor[num];
+// extern motor_t motor[num];
+// 并且不允许在任务调度中直接读取motor[0].para.pos和motor[0].para.vel的值，读取之前应该先赋值给其他变量，在用另一个变量在任务中运行
 extern Gripper_mode_e gripper_state ;
 int8_t auto_state= 1;
 
-void ArmJointDataPack(void)
-{
+void ArmJointDataPack(void) {
     // 初始化缓冲区，避免脏数据
     memset(usb_txbuffer, 0, MAX_USB_BUF_LEN);
 
@@ -435,68 +436,34 @@ void ArmJointDataPack(void)
     usb_txbuffer[1] = 0x05;  // 地址
     usb_txbuffer[2] = 0x20;  // 命名ID
     usb_txbuffer[3] = USB_ARM_JOINTS_DATA_LEN;  // 数据长度
-    static int32_t joint1_positiion;
-    static int32_t joint2_positiion;
-    static int32_t joint3_positiion;
-    static int32_t joint4_positiion;
-    static int32_t joint5_positiion;
-    static int32_t joint6_positiion;
-    static int32_t joint1_velocity;
-    static int32_t joint2_velocity;
-    static int32_t joint3_velocity;
-    static int32_t joint4_velocity;
-    static int32_t joint5_velocity;
-    static int32_t joint6_velocity;
-    const float scale = 10000.0f;
-    joint1_positiion = (int32_t)(-motor[0].para.pos * scale / 57.3f);//一号电机往左变大，
-    joint2_positiion = (int32_t)(motor[1].para.pos * scale / 57.3f);
-    joint3_positiion = (int32_t)(motor[2].para.pos * scale / 57.3f);
-    joint4_positiion = (int32_t)(motor[3].para.pos * scale / 57.3f);
-    joint5_positiion = (int32_t)(motor[4].para.pos * scale / 57.3f);
-    joint6_positiion = (int32_t)(motor[5].para.pos * scale / 57.3f);
 
-    joint1_velocity = (int32_t)(motor[0].para.vel * scale);
-    joint2_velocity = (int32_t)(motor[1].para.vel * scale);
-    joint3_velocity = (int32_t)(motor[2].para.vel * scale);
-    joint4_velocity = (int32_t)(motor[3].para.vel * scale);
-    joint5_velocity = (int32_t)(motor[4].para.vel * scale);
-    joint6_velocity = (int32_t)(motor[5].para.vel * scale);
+    // 将关节数据填入缓冲区
+    for (int i = 0; i < 6; i++) {
+        int32_t joint_position = (int32_t) (transmission_subscribe_arm_feedback_data.joint[i].pos_rad * 10000.0f);
+        int32_t joint_velocity = (int32_t) (transmission_subscribe_arm_feedback_data.joint[i].vel_rad_s * 10000.0f);
+        memcpy(&usb_txbuffer[HEAD_BUF_LEN + i * 8], &joint_position, sizeof(int32_t));  // 填充关节位置
+        memcpy(&usb_txbuffer[HEAD_BUF_LEN + i * 8 + 4], &joint_velocity, sizeof(int32_t));  // 填充关节速度
+    }
 
-    auto_state= 1;//这里有点问题，上位机初始化这个必须为一才能初始化成功//打算后续换为下位机发送命令，让出控制权，结束后接手控制权
+    auto_state = 1;//这里有点问题，上位机初始化这个必须为一才能初始化成功//打算后续换为下位机发送命令，让出控制权，结束后接手控制权
 
-
-    uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始
-    memcpy(&usb_txbuffer[offset], &joint1_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint2_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint3_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint4_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint5_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint6_positiion, sizeof(int32_t)); offset += sizeof(int32_t);
-
-    memcpy(&usb_txbuffer[offset], &joint1_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint2_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint3_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint4_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint5_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &joint6_velocity, sizeof(int32_t)); offset += sizeof(int32_t);
-
-    memcpy(&usb_txbuffer[offset], &gripper_state, sizeof(int8_t)); offset += sizeof(int8_t);
-    memcpy(&usb_txbuffer[offset], &auto_state, sizeof(int8_t)); offset += sizeof(int8_t);
-
+    // 添加 gripper_state 和 auto_state
+    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN], &gripper_state, sizeof(int8_t));
+    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t)], &auto_state, sizeof(int8_t));
 
     // 计算校验码（覆盖0到最后一个数据字节）
     sum_check = 0;
     addr_check = 0;
-    for (int i = 0; i < (HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN); i++) {
+    for (int i = 0; i < (HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t) * 2); i++) {
         sum_check += usb_txbuffer[i];
         addr_check += sum_check;
     }
-    usb_txbuffer[offset++] = sum_check & 0xFF;
-    usb_txbuffer[offset] = addr_check & 0xFF;
+    usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t) * 2] = sum_check & 0xFF;
+    usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t) * 2 + 1] = addr_check & 0xFF;
 
-    // 发送数据，检查返回值确保发送成功
+    // 发送数据
     if (CDC_Transmit_HS(usb_txbuffer, ARM_JOINTS_BUF_LEN) != USBD_OK) {
-
+        // 发送失败处理
     }
 }
 

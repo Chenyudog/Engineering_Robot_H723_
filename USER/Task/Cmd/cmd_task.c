@@ -58,13 +58,10 @@ static float cmd_task_start_dt = 0; // 监测线程开始时间
 
 extern sbus_data_t sbus_data_fdb;
 extern keyboard_control_t keyboard;
-
 extern vt13_remote_parsed_data_t vt13_remote_parsed_data_fdb;
-
 static pc_control_t pc_data;
 
 extern struct referee_fdb_msg referee_fdb;
-
 extern struct cmd_chassis_msg cmd_chassis;
 
 static Store_mode_e store_mode1 = Store_NO1;
