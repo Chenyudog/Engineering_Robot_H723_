@@ -395,7 +395,7 @@ void DMmotorTask_Entry(void const * argument)
                 DMmotor_apply_movej_ref(&dmmotor_subscribe_movej_ref_data);
             }
         }
-
+        DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */

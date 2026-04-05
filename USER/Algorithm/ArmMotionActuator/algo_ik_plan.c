@@ -144,8 +144,9 @@ static bool MoveJ_StartFromCurrentFeedback(void)
         return false;
     }
 
-    USART7_DebugPrintf("[MoveJ] start ok, total_time=%.3f\r\n",
-                       g_algo.planner.movej.prof.total_time);
+    // USART7_DebugPrintf("[MoveJ] start ok, total_time=%.3f\r\n", g_algo.planner.movej.prof.total_time);
+
+
     return true;
 }
 
@@ -173,10 +174,10 @@ static void Algorithm_HandlePoseCommand(void)
         return;
     }
 
-    USART7_DebugPrintf("[Pose %lu] target = xyz(%.4f, %.4f, %.4f) ryp(%.4f, %.4f, %.4f)\r\n",
-                       (unsigned long)pose_seq_local,
-                       pose_local.X, pose_local.Y, pose_local.Z,
-                       pose_local.ROLL, pose_local.YAW, pose_local.PITCH);
+//    USART7_DebugPrintf("[Pose %lu] target = xyz(%.4f, %.4f, %.4f) ryp(%.4f, %.4f, %.4f)\r\n",
+//                       (unsigned long)pose_seq_local,
+//                       pose_local.X, pose_local.Y, pose_local.Z,
+//                       pose_local.ROLL, pose_local.YAW, pose_local.PITCH);
 
     memset(g_algo.pose_plan.ik_cands, 0, sizeof(g_algo.pose_plan.ik_cands));
     g_algo.pose_plan.ik_cand_count = 0;
@@ -193,13 +194,13 @@ static void Algorithm_HandlePoseCommand(void)
         g_algo.pose_plan.last_ik_seq = pose_seq_local;
         g_algo.pose_plan.cmd_state = ALGO_CMD_IK_OK;
 
-        USART7_DebugPrintf("[Pose %lu] IK ok, cand=%d\r\n",
-                           (unsigned long)pose_seq_local,
-                           g_algo.pose_plan.ik_cand_count);
-        USART7_DebugPrintf("[Pose %lu] qik= %.3f %.3f %.3f %.3f %.3f %.3f\r\n",
-                           (unsigned long)pose_seq_local,
-                           g_algo.pose_plan.q_ik_target[0], g_algo.pose_plan.q_ik_target[1], g_algo.pose_plan.q_ik_target[2],
-                           g_algo.pose_plan.q_ik_target[3], g_algo.pose_plan.q_ik_target[4], g_algo.pose_plan.q_ik_target[5]);
+//        USART7_DebugPrintf("[Pose %lu] IK ok, cand=%d\r\n",
+//                           (unsigned long)pose_seq_local,
+//                           g_algo.pose_plan.ik_cand_count);
+//        USART7_DebugPrintf("[Pose %lu] qik= %.3f %.3f %.3f %.3f %.3f %.3f\r\n",
+//                           (unsigned long)pose_seq_local,
+//                           g_algo.pose_plan.q_ik_target[0], g_algo.pose_plan.q_ik_target[1], g_algo.pose_plan.q_ik_target[2],
+//                           g_algo.pose_plan.q_ik_target[3], g_algo.pose_plan.q_ik_target[4], g_algo.pose_plan.q_ik_target[5]);
 
         memcpy(g_algo.planner.q_target,
                g_algo.pose_plan.q_ik_target,
@@ -234,16 +235,16 @@ static void Algorithm_HandleMoveJStart(void)
         g_algo.planner.movej_cmd_pending = 0;
         g_algo.planner.track_print_div = 0;
 
-        USART7_DebugPrintf("[Pose %lu] MoveJ start\r\n",
-                           (unsigned long)g_algo.pose_plan.last_start_seq);
+//        USART7_DebugPrintf("[Pose %lu] MoveJ start\r\n",
+//                           (unsigned long)g_algo.pose_plan.last_start_seq);
 
-        USART7_DebugPrintf("[MoveJ] qfb= %.3f %.3f %.3f, qtarget= %.3f %.3f %.3f\r\n",
-                           g_algo.feedback.q_fb[0], g_algo.feedback.q_fb[1], g_algo.feedback.q_fb[2],
-                           g_algo.planner.q_target[0], g_algo.planner.q_target[1], g_algo.planner.q_target[2]);
+//        USART7_DebugPrintf("[MoveJ] qfb= %.3f %.3f %.3f, qtarget= %.3f %.3f %.3f\r\n",
+//                           g_algo.feedback.q_fb[0], g_algo.feedback.q_fb[1], g_algo.feedback.q_fb[2],
+//                           g_algo.planner.q_target[0], g_algo.planner.q_target[1], g_algo.planner.q_target[2]);
 
-        USART7_DebugPrintf("[MoveJ] total_time=%.3f, moving_joint_count=%d\r\n",
-                           g_algo.planner.movej.prof.total_time,
-                           g_algo.planner.movej.moving_joint_count);
+//        USART7_DebugPrintf("[MoveJ] total_time=%.3f, moving_joint_count=%d\r\n",
+//                           g_algo.planner.movej.prof.total_time,
+//                           g_algo.planner.movej.moving_joint_count);
     }
     else
     {

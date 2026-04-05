@@ -352,7 +352,7 @@ static bool AlgorithmTask_EnqueuePose(const Pose6D_t *pose,
 
     if (!ok)
     {
-        USART7_DebugPrintf("[Discrete] queue full, drop cmd\r\n");
+        // USART7_DebugPrintf("[Discrete] queue full, drop cmd\r\n");
     }
 
     return ok;
@@ -500,7 +500,7 @@ static void AlgorithmTask_DiscreteExecutorStep(const AlgoFeedback_t *fb, const A
 
                     if (cmd.name != NULL)
                     {
-                        USART7_DebugPrintf("[Discrete] send %s\r\n", cmd.name);
+                        // USART7_DebugPrintf("[Discrete] send %s\r\n", cmd.name);
                     }
                     else
                     {
@@ -551,7 +551,7 @@ static void AlgorithmTask_DiscreteExecutorStep(const AlgoFeedback_t *fb, const A
     {
         if (g_discrete_rt.active_cmd.name != NULL)
         {
-            USART7_DebugPrintf("[Discrete] done %s\r\n", g_discrete_rt.active_cmd.name);
+            // USART7_DebugPrintf("[Discrete] done %s\r\n", g_discrete_rt.active_cmd.name);
         }
         else
         {
