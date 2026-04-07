@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file    algorithm_task.c
+  * @file    transmission_task.c
   * @author  Liu JiaJun(187353224@qq.com) and RockZhang(2431952330@qq.com)
   * @version V2.0.0
   * @date    2025-10-16
@@ -32,8 +32,11 @@
 #define CMD_CHASSIS_BUF_LEN         (USB_CMD_CHASSIS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+12(数据)+2(校验)
 
 #define USB_ARM_JOINTS_DATA_LEN    50      // 数据部分长度（12个int32_t+2个uint8_t）
+#define USB_ARM_JOINTS_POS_DATA_LEN    24
+#define USB_ARM_JOINTS_VEL_DATA_LEN    24
 #define ARM_JOINTS_BUF_LEN         (USB_ARM_JOINTS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+49(数据)+2(校验)
 
+#define HEADER_SOF 0xFF
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static struct ins_msg transmission_subscribe_ins_data;
@@ -109,22 +112,25 @@ void TransmissionTask_Entry(void const * argument)
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         //接收上位机数据并解析
-//        if (USB_Data_Ready_Flag == 1)
-//        {
-//            UnpackPCData();
-//            USB_Received_Len = 0;
-//            USB_Data_Ready_Flag = 0;
-//        }
-        //发送数据给上位机
+        if (USB_Data_Ready_Flag == 1)//虚拟串口接收到数据，内置函数直接将标志位设为1
+        {
+            UnpackPCData();
+            USB_Received_Len = 0;
+            USB_Data_Ready_Flag = 0;
+        }
+/* --------------------------------在此处添加要发给上位机的打包函数 --------------------------------- */
         //InsDataPack();
         //vTaskDelay(1);
-        //ArmJointDataPack();//发给上位机
-/* -------------------------------- 线程代码编写段落 ------------------------------- */
+        ArmJointDataPack();//发给上位机
+        vTaskDelay(1);
+/* --------------------------------在此处添加要发给上位机的打包函数 --------------------------------- */
+
+/* -------------------------------- 线程代码编写段落 ------------------------------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
         transmission_topic_pub_push();
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-        vTaskDelay(10);
+        vTaskDelay(18);
     }
 }
 /* -------------------------------- 线程结束 ------------------------------- */
@@ -132,7 +138,7 @@ void TransmissionTask_Entry(void const * argument)
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static void transmission_topic_pub_init(void)
 {
-    pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis_pub",sizeof(struct cmd_chassis_msg));
+    pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis",sizeof(struct cmd_chassis_msg));
     pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
 }
 
@@ -140,7 +146,6 @@ static void transmission_topic_sub_init(void)
 {
     subscribe_ins_topic = sub_register("ins_pub", sizeof(struct ins_msg));
     subscribe_cmd_chassis_topic = sub_register("cmd_ch_pub", sizeof(struct cmd_chassis_msg));
-    // 订阅关节反馈数据
     subscribe_arm_feedback_topic = sub_register("dm_arm_feedback_pub", sizeof(dm_arm_feedback_msg_t));
 }
 
@@ -193,9 +198,7 @@ void uppack_pc_cmd_arm_data(void)
 
 static void transmission_topic_pub_push(void)
 {
-    uppack_pc_cmd_chassis_data();
     pub_push_msg(pc_cmd_chassis_topic_publish,&receive_pc_cmd_chassis_data);
-    uppack_pc_cmd_arm_data();
     pub_push_msg(pc_cmd_arm_topic_publish,&receive_pc_cmd_arm_msg_data);
 }
 
@@ -210,7 +213,7 @@ static void transmission_topic_sub_pull(void)
 
 /* -------------------------------- 线程间通讯数据包相关 ------------------------------- */
 
-void InsDataPack()
+void InsDataPack()//目前上位机用不到下位机陀螺仪
 {
     // 初始化缓冲区，避免脏数据
     memset(usb_txbuffer, 0, MAX_USB_BUF_LEN);
@@ -260,46 +263,12 @@ void InsDataPack()
 }
 
 
-void CmdChassisDataPack(void)
-{
-    // 初始化缓冲区，避免脏数据
-    memset(usb_txbuffer, 0, MAX_USB_BUF_LEN);
 
-    // 填充帧头信息
-    usb_txbuffer[0] = 0xFF;  // 帧头
-    usb_txbuffer[1] = 0x05;  // 地址
-    usb_txbuffer[2] = 0x10;  // 命名ID    //参考木鸢战队通信协议
-    usb_txbuffer[3] = USB_CMD_CHASSIS_DATA_LEN;  // 数据长度
-
-    const float scale = 10000.0f;
-    int32_t cmd_chassis_vx = (int32_t)(receive_pc_cmd_chassis_data.vx * scale);
-    int32_t cmd_chassis_vy = (int32_t)(receive_pc_cmd_chassis_data.vy * scale);
-    int32_t cmd_chassis_vw = (int32_t)(receive_pc_cmd_chassis_data.vw * scale);
-
-    uint32_t offset = HEAD_BUF_LEN;  // 从帧头后开始
-    memcpy(&usb_txbuffer[offset], &cmd_chassis_vx, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &cmd_chassis_vy, sizeof(int32_t)); offset += sizeof(int32_t);
-    memcpy(&usb_txbuffer[offset], &cmd_chassis_vw, sizeof(int32_t)); offset += sizeof(int32_t);
-
-    sum_check = 0;
-    addr_check = 0;
-    for (int i = 0; i < (HEAD_BUF_LEN + USB_CMD_CHASSIS_DATA_LEN); i++) {
-        sum_check += usb_txbuffer[i];
-        addr_check += sum_check;
-    }
-    usb_txbuffer[offset++] = sum_check & 0xFF;
-    usb_txbuffer[offset] = addr_check & 0xFF;
-
-    // 发送数据，检查返回值确保发送成功
-    if (CDC_Transmit_HS(usb_txbuffer, CMD_CHASSIS_BUF_LEN) != USBD_OK) {
-
-    }
-}
 
 
 void UnpackPCData(void)
 {
-    uint8_t rx_data_state = 0;
+    uint8_t rx_data_state = STEP_HEADER_SOF;
     Data_len = 0;
     sum_check = 0;
     addr_check = 0;
@@ -309,85 +278,88 @@ void UnpackPCData(void)
     {
         uint8_t curr_byte = USB_Received_Data[num_count];
 
-        if (curr_byte == 0xFF && rx_data_state == 0) // 等待帧头
+        if (curr_byte == HEADER_SOF && rx_data_state == STEP_HEADER_SOF) // 等待帧头
         {
             set_data(curr_byte);
-            rx_data_state = 1;
+            rx_data_state = STEP_ADDRESS;
         }
-        else if (curr_byte == 0x05 && rx_data_state == 1) // 等待地址
+        else if (curr_byte == 0x05 && rx_data_state == STEP_ADDRESS) // 等待地址//工程车固定ID号为0x05
         {
             set_data(curr_byte);
-            rx_data_state = 2;
+            rx_data_state = STEP_ID;
         }
-        else if (rx_data_state == 2)
+        else if (rx_data_state == STEP_ID)
         {
             set_data(curr_byte);
-            rx_data_state = 3;
+            rx_data_state = STEP_LEN;
         }
-        else if (rx_data_state == 3)
+        else if (rx_data_state == STEP_LEN)
         {
-            if (Data_len == 3)
+            if (Data_len == 3)//前三个帧头数量无误
             {
                 set_data(curr_byte);
             }
             else
             {
                 // 已接收数据字节数 = 总接收字节数 - 帧头长度（4字节）
-                if ((Data_len - HEAD_BUF_LEN) <= Rx_data[3])
+                if ((Data_len - HEAD_BUF_LEN) <= Rx_data[3])//Rx_data[3]为数据包的长度
                 {
                     set_data(curr_byte);
                 }
                 // 数据段接收完成，进入校验阶段
                 if ((Data_len - HEAD_BUF_LEN) == Rx_data[3])
                 {
-                    rx_data_state = 4;
+                    rx_data_state = STEP_DATA;
                 }
             }
-            if (Data_len >= sizeof(Rx_data))
+            if (Data_len >= sizeof(Rx_data))//接收到的数据长度异常,抛弃
             {
-                rx_data_state = 0;
+                rx_data_state = STEP_HEADER_SOF;
                 Data_len = 0;
                 sum_check = 0;
                 addr_check = 0;
             }
         }
-        else if (rx_data_state == 4) // 校验sum_check
+        else if (rx_data_state == STEP_DATA) // 校验sum_check
         {
             if ((sum_check & 0xFF) == curr_byte)
             {
-                rx_data_state = 5;
+                rx_data_state = STEP_SC;
             }
             else
             {
-                rx_data_state = 0;
+                rx_data_state = STEP_HEADER_SOF;
                 Data_len = 0;
                 sum_check = 0;
                 addr_check = 0;
             }
         }
-        else if (rx_data_state == 5) // 校验addr_check
+        else if (rx_data_state == STEP_SC) // 校验addr_check
         {
             if ((addr_check & 0xFF) == curr_byte)
             {
-                rx_data_state = 0;
+                rx_data_state = STEP_HEADER_SOF;//数据校验成功，reset相关变量
                 Data_len = 0;
                 sum_check = 0;
                 addr_check = 0;
-                //在此处添加要从上位机接收的id以及解包函数
-                if(Rx_data[2] == 0x12)
+
+/* --------------------------------在此处添加要从上位机接收的id以及解包函数 --------------------------------- */
+
+                if(Rx_data[2] == 0x12)//导航数据包
                 {
                     uppack_pc_cmd_chassis_data();
                 }
-                if(Rx_data[2] == 0x21)
+                if(Rx_data[2] == 0x21)//机械臂数据包
                 {
                     uppack_pc_cmd_arm_data();
                 }
 
+/* --------------------------------在此处添加要从上位机接收的id以及解包函数 --------------------------------- */
 
             }
             else
             {
-                rx_data_state = 0;
+                rx_data_state = STEP_HEADER_SOF;//数据校验失败，reset相关变量
                 Data_len = 0;
                 sum_check = 0;
                 addr_check = 0;
@@ -395,7 +367,7 @@ void UnpackPCData(void)
         }
         else
         {
-            rx_data_state = 0;
+            rx_data_state = STEP_HEADER_SOF;//数据解包失败，reset相关变量
             Data_len = 0;
             sum_check = 0;
             addr_check = 0;
@@ -421,11 +393,7 @@ void set_data(uint8_t rx_byte)
     }
 }
 
-// dm_motor_ctrl.h中含有motor_t motor[num];
-// extern motor_t motor[num];
-// 并且不允许在任务调度中直接读取motor[0].para.pos和motor[0].para.vel的值，读取之前应该先赋值给其他变量，在用另一个变量在任务中运行
-extern Gripper_mode_e gripper_state ;
-int8_t auto_state= 1;
+
 
 void ArmJointDataPack(void) {
     // 初始化缓冲区，避免脏数据
@@ -440,26 +408,26 @@ void ArmJointDataPack(void) {
     // 将关节数据填入缓冲区
     for (int i = 0; i < 6; i++) {
         int32_t joint_position = (int32_t) (transmission_subscribe_arm_feedback_data.joint[i].pos_rad * 10000.0f);
+        memcpy(&usb_txbuffer[HEAD_BUF_LEN + i * 4], &joint_position, sizeof(int32_t));  // 填充关节位置
+    }
+    for (int i = 0; i < 6; i++) {
         int32_t joint_velocity = (int32_t) (transmission_subscribe_arm_feedback_data.joint[i].vel_rad_s * 10000.0f);
-        memcpy(&usb_txbuffer[HEAD_BUF_LEN + i * 8], &joint_position, sizeof(int32_t));  // 填充关节位置
-        memcpy(&usb_txbuffer[HEAD_BUF_LEN + i * 8 + 4], &joint_velocity, sizeof(int32_t));  // 填充关节速度
+        memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_POS_DATA_LEN + i * 4], &joint_velocity, sizeof(int32_t));  // 填充关节位置
     }
 
-    auto_state = 1;//这里有点问题，上位机初始化这个必须为一才能初始化成功//打算后续换为下位机发送命令，让出控制权，结束后接手控制权
-
     // 添加 gripper_state 和 auto_state
-    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN], &gripper_state, sizeof(int8_t));
-    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t)], &auto_state, sizeof(int8_t));
+    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_POS_DATA_LEN + USB_ARM_JOINTS_VEL_DATA_LEN ], &transmission_subscribe_arm_feedback_data.gripper_state, sizeof(int8_t));
+    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_POS_DATA_LEN + USB_ARM_JOINTS_VEL_DATA_LEN + sizeof(int8_t) ], &transmission_subscribe_arm_feedback_data.arm_control_state, sizeof(int8_t));
 
     // 计算校验码（覆盖0到最后一个数据字节）
     sum_check = 0;
     addr_check = 0;
-    for (int i = 0; i < (HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t) * 2); i++) {
+    for (int i = 0; i < (HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN); i++) {
         sum_check += usb_txbuffer[i];
         addr_check += sum_check;
     }
-    usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t) * 2] = sum_check & 0xFF;
-    usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t) * 2 + 1] = addr_check & 0xFF;
+    usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN ] = sum_check & 0xFF;
+    usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_DATA_LEN + sizeof(int8_t)] = addr_check & 0xFF;
 
     // 发送数据
     if (CDC_Transmit_HS(usb_txbuffer, ARM_JOINTS_BUF_LEN) != USBD_OK) {

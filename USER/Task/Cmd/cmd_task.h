@@ -19,6 +19,12 @@ typedef enum
 
 typedef enum
 {
+    User_defined_Controller, //自定义模式控制器
+    PC_based_Controller,    //上位机控制
+} Arm_mode_e;
+
+typedef enum
+{
     Store_NO1,
     Store_NO2,
     Store_NO3,

@@ -23,8 +23,6 @@
 #include "transmission_task.h"
 #include "robot_task.h"
 
-/////修改电机正负号在下面的函数修改
-static int8_t auto_state_effect_key = 0;///没有想好用什么实现一键开启，所以先用这个变量替代
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static struct pc_cmd_arm_msg dm_receive_pc_cmd_arm_msg_data = {0};
@@ -55,9 +53,10 @@ static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤
 static float dm_angles[6] = {0.0f};   // 队列读取值
 static float dm_motor_angles[6] = {0.0f};   // 期望角度值
 Gripper_mode_e gripper_state ;
+Arm_mode_e arm_control_state = 0;//这里用上位机调试，所以改为1
 
 extern QueueHandle_t xControlQueue;
-extern Gripper_mode_e Gripper_mode;
+
 
 DMmotorControl motor_controls[6] = {
         { MOTOR_1_MIN_LIMIT, MOTOR_1_MAX_LIMIT, 0.0f, 0.0f, 0 }, // Motor 0 (FDCAN3)
@@ -282,7 +281,8 @@ static void dm_feedback_cache_update(void)
                                 &motor[joint_motor_name[i]], i);
         dm_arm_feedback_pub_msg.update_mask |= (1u << i);  // 表示每个周期六个电机都更新
     }
-
+    dm_arm_feedback_pub_msg.gripper_state = gripper_state;
+    dm_arm_feedback_pub_msg.arm_control_state = arm_control_state;
     taskEXIT_CRITICAL();
 }
 
@@ -353,49 +353,49 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-//    if(auto_state_effect_key == 0)//自定义控制模式
-//    {
-//        if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS)
-//        {
-//            for(uint8_t i=0;i<6;i++){
-//                dm_motor_angles[i] = dm_angles[i];
-//            }
-//            DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-//            DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
-//            DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
-//            DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
-//            DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
-//            DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
-//        }
-//        DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
-        // }
-//    else if(auto_state_effect_key == 1 && dm_receive_pc_cmd_arm_msg_data.auto_state == 1)//auto_state_effect_key == 1 一键抓取模式;auto_state==1代表上位机已经准备好了
-//    {
-//        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
-//        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
-//        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos * 57.3f;
-//        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
-//        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
-//        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
-//        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-//        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
-//        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
-//        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
-//        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
-//        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
-//        DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制//一键夹取功能
-//
-//    }
-        if (dmmotor_subscribe_movej_ref_data.seq != dmmotor_last_movej_seq)
+    if(dm_arm_feedback_pub_msg.arm_control_state == 0)//自定义控制模式
+    {
+        if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS)
         {
-            dmmotor_last_movej_seq = dmmotor_subscribe_movej_ref_data.seq;
-
-            if (dmmotor_subscribe_movej_ref_data.valid)
-            {
-                DMmotor_apply_movej_ref(&dmmotor_subscribe_movej_ref_data);
+            for(uint8_t i=0;i<6;i++){
+                dm_motor_angles[i] = dm_angles[i];
             }
+            DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+            DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+            DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
+            DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
+            DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
+            DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
         }
-        DMcontrol_motor_7(&hfdcan2,Gripper_mode);//夹爪控制//一键夹取功能
+    }
+    else if(dm_arm_feedback_pub_msg.arm_control_state == 1)//PC控制模式
+    {
+        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
+        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
+        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos * 57.3f;
+        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
+        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
+        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
+        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
+        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
+        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
+        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
+        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
+        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
+    }
+    DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制
+
+
+//        if (dmmotor_subscribe_movej_ref_data.seq != dmmotor_last_movej_seq)
+//        {
+//            dmmotor_last_movej_seq = dmmotor_subscribe_movej_ref_data.seq;
+//
+//            if (dmmotor_subscribe_movej_ref_data.valid)
+//            {
+//                DMmotor_apply_movej_ref(&dmmotor_subscribe_movej_ref_data);
+//            }
+//        }
+//        DMcontrol_motor_7(&hfdcan2,gripper_state);//夹爪控制//一键夹取功能
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */

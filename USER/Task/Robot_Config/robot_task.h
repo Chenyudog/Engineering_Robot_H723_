@@ -84,7 +84,9 @@ typedef struct
 {
     uint32_t update_mask;      // 哪些电机本周期更新过
     uint32_t tick_ms;          // 时间戳，可选
-    dm_joint_feedback_t joint[7];   // 0~5 对应关节1~6，6对应夹爪7
+    dm_joint_feedback_t joint[6];   // 0~5 对应关节1~6
+    uint8_t  gripper_state;
+    uint8_t arm_control_state;
 } dm_arm_feedback_msg_t;
 /** -------------------------------- DMmotor_Task Topics_Msg ------------------------------- **/
 

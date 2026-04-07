@@ -20,4 +20,18 @@ struct pc_cmd_arm_msg
     uint8_t gripper_ctrl;
 };
 
+
+typedef enum
+{
+    STEP_HEADER_SOF  = 0,
+    STEP_ADDRESS  = 1,
+    STEP_ID  = 2,
+    STEP_LEN  = 3,
+    STEP_DATA  = 4,
+    STEP_SC  = 5,
+    STEP_AC  = 6,
+
+} unpack_transmission_step_e;
+
+
 #endif //CTRBOARD_H7_ALL_TRANSMISSION_TASK_H

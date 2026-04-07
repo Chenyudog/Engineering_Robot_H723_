@@ -568,17 +568,17 @@ static void AlgorithmTask_DiscreteExecutorStep(const AlgoFeedback_t *fb, const A
 void AlgorithmTask_Entry(void const * argument)
 {
 /* -------------------------------- 外设初始化段落 ------------------------------- */
-    Init_KalmanFiltersOne(KALMAN_F, KALMAN_H, KALMAN_Q, KALMAN_R);
-    /* MoveJ 初始化：只做一次 */
-    /* Algo 初始化：只做一次 */
-    Algo_InitContext();
-    memset(&g_algo_out, 0, sizeof(g_algo_out));
-    memset(&g_algo_fb, 0, sizeof(g_algo_fb));
-    memset(&g_discrete_rt, 0, sizeof(g_discrete_rt));
-
-    AlgorithmTask_DiscreteQueueInit();
-    g_demo_sent = 0;
-    g_test_next_index = 0;
+//    Init_KalmanFiltersOne(KALMAN_F, KALMAN_H, KALMAN_Q, KALMAN_R);
+//    /* MoveJ 初始化：只做一次 */
+//    /* Algo 初始化：只做一次 */
+//    Algo_InitContext();
+//    memset(&g_algo_out, 0, sizeof(g_algo_out));
+//    memset(&g_algo_fb, 0, sizeof(g_algo_fb));
+//    memset(&g_discrete_rt, 0, sizeof(g_discrete_rt));
+//
+//    AlgorithmTask_DiscreteQueueInit();
+//    g_demo_sent = 0;
+//    g_test_next_index = 0;
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
@@ -612,23 +612,23 @@ void AlgorithmTask_Entry(void const * argument)
             xQueueSend(xControlQueue, filtered_data, 0);
         }
 
-        /* 1) 从Topic构造反馈 */
-        AlgorithmTask_BuildFeedback(&g_algo_fb);
-
-        /* 2) 喂给算法层 */
-        Algo_SetFeedback(&g_algo_fb);
-
-        /* 3) 根据当前输入模式填充离散队列 */
-        AlgorithmTask_SourceFillStep(&g_algo_fb, &g_algo_out);
-
-        /* 4) 离散执行器：统一发点/等完成/再发下一个 */
-        AlgorithmTask_DiscreteExecutorStep(&g_algo_fb, &g_algo_out);
-
-        /* 5) 跑一步算法 */
-        Algo_Step(algorithm_task_dt);
-
-        /* 6) 获取当前输出 */
-        Algo_GetOutput(&g_algo_out);
+//        /* 1) 从Topic构造反馈 */
+//        AlgorithmTask_BuildFeedback(&g_algo_fb);
+//
+//        /* 2) 喂给算法层 */
+//        Algo_SetFeedback(&g_algo_fb);
+//
+//        /* 3) 根据当前输入模式填充离散队列 */
+//        AlgorithmTask_SourceFillStep(&g_algo_fb, &g_algo_out);
+//
+//        /* 4) 离散执行器：统一发点/等完成/再发下一个 */
+//        AlgorithmTask_DiscreteExecutorStep(&g_algo_fb, &g_algo_out);
+//
+//        /* 5) 跑一步算法 */
+//        Algo_Step(algorithm_task_dt);
+//
+//        /* 6) 获取当前输出 */
+//        Algo_GetOutput(&g_algo_out);
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 

@@ -34,15 +34,15 @@
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static struct cmd_chassis_msg pc_cmd_data;
-
+static publisher_t *chassis_cmd_pub;
 static subscriber_t *pc_cmd;
 
-//static void chassis_pub_init(void);
+static void cmd_pub_init(void);
 static void cmd_sub_init(void);
-//static void cmd_pub_push(void);
+static void cmd_pub_push(void);
+static void cmd_sub_pull(void);
 void store1_ctrl(void);
 void store2_ctrl(void);
-static void cmd_sub_pull(void);
 void store_ctrl(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
@@ -59,8 +59,8 @@ extern vt13_remote_parsed_data_t vt13_remote_parsed_data_fdb;
 static pc_control_t pc_data;
 
 extern struct referee_fdb_msg referee_fdb;
-extern struct cmd_chassis_msg cmd_chassis;
-
+struct cmd_chassis_msg cmd_chassis;
+extern Gripper_mode_e gripper_state ;
 static Store_mode_e store_mode1 = Store_NO1;
 static Store_mode_e store_mode2 = Store_NO1;
 /* 外部变量声明 */
@@ -93,8 +93,8 @@ void CmdTask_Entry(void const * argument)
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
-//    chassis_pub_init();
-      cmd_sub_init();
+    cmd_pub_init();
+    cmd_sub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     cmd_task_dt = dwt_get_delta(&cmd_task_dwt);
@@ -121,7 +121,7 @@ void CmdTask_Entry(void const * argument)
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-//        chassis_pub_push();
+        cmd_pub_push();
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
         vTaskDelay(1);
     }
@@ -130,27 +130,44 @@ void CmdTask_Entry(void const * argument)
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
+
 /**
- * @brief chassis 线程中所有订阅者初始化
+ * @brief cmd_task 线程中所有发布者初始化
+ */
+static void cmd_pub_init(void)
+{
+    chassis_cmd_pub = pub_register("chassis_cmd_pub", sizeof(struct cmd_chassis_msg));
+}
+
+
+/**
+ * @brief cmd_task  线程中所有订阅者初始化
  */
 static void cmd_sub_init(void)
 {
-    pc_cmd = sub_register("pc_cmd_chassis_pub", sizeof(struct cmd_chassis_msg));
+    pc_cmd = sub_register("pc_cmd_chassis", sizeof(struct cmd_chassis_msg));
 }
 
 /**
- * @brief chassis 线程中所有订阅者获取更新话题
+ * @brief cmd_task  线程中所有订阅者获取更新话题
  */
 static void cmd_sub_pull(void)
 {
     sub_get_msg(pc_cmd, &pc_cmd_data);
 }
+
+/**
+ * @brief cmd_task  线程中所有订阅者推送话题
+ */
+static void cmd_pub_push(void)
+{
+    pub_push_msg(chassis_cmd_pub,&cmd_chassis);
+}
+
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static uint8_t fn_1_last_state = 0;  // 保存上次的状态,初始为未按下
 static uint8_t fn_2_last_state = 0;  // 保存上次的状态,初始为未按下
-extern pump_mode_e pump_mode;
-extern Gripper_mode_e Gripper_mode;
 extern struct arm_cmd_msg arm_cmd;
 /* ------------------------------ 将遥控器数据转换为控制指令 ----------------------------- */
 void remote_to_cmd_sbus(void) {
@@ -168,11 +185,11 @@ void remote_to_cmd_sbus(void) {
 
         if (vt13_remote_parsed_data_fdb.mode_sw == 0)//夹爪控制模式
         {
-            Gripper_mode =Gripper_OPEN ;
+            gripper_state =Gripper_OPEN ;
         }
         else if(vt13_remote_parsed_data_fdb.mode_sw == 2)
         {
-            Gripper_mode =Gripper_CLOSE;
+            gripper_state =Gripper_CLOSE;
         }
         //底盘失使能
         if(vt13_remote_parsed_data_fdb.fn_1 && !fn_1_last_state)
@@ -196,9 +213,9 @@ void remote_to_cmd_sbus(void) {
                               + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw);
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
         if (sbus_data_fdb.sw3 == RC_UP) {
-            Gripper_mode = Gripper_OPEN;
+            gripper_state = Gripper_OPEN;
         } else if (sbus_data_fdb.sw3 == RC_DN) {
-            Gripper_mode = Gripper_CLOSE;
+            gripper_state = Gripper_CLOSE;
         }
 
         if (sbus_data_fdb.sw2 == RC_UP) {

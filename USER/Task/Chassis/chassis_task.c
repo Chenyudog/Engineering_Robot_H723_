@@ -58,8 +58,8 @@ static struct ins_msg ins_data;
 static float target_yaw = 0.0f;
 static pid_obj_t *chassis_yaw_pid;
 static pid_config_t chassis_yaw_config = INIT_PID_CONFIG(0.45, 0.0, 0.012, 0.0, 4.3, PID_Trapezoid_Intergral);
-static publisher_t * pub_chassis;
 static subscriber_t* sub_ins;
+static subscriber_t* chassis_cmd_sub;
 
 static void chassis_pub_init(void);
 static void chassis_sub_init(void);
@@ -73,7 +73,7 @@ static float chassis_task_delta = 0;    // 监测线程运行时间
 static float chassis_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 
-struct cmd_chassis_msg cmd_chassis;
+static struct cmd_chassis_msg cmd_chassis;
 extern struct referee_fdb_msg referee_fdb;
 
 static struct chassis_controller_t
@@ -591,7 +591,7 @@ void ChassisTask_Entry(void const * argument)
  */
 static void chassis_pub_init(void)
 {
-    pub_chassis = pub_register("cmd_cha_pub",sizeof(struct cmd_chassis_msg));
+    
 }
 
 /**
@@ -600,6 +600,7 @@ static void chassis_pub_init(void)
 static void chassis_sub_init(void)
 {
     sub_ins = sub_register("ins_pub", sizeof(struct ins_msg));
+    chassis_cmd_sub = sub_register("chassis_cmd_pub", sizeof(struct cmd_chassis_msg));
 }
 
 /**
@@ -607,7 +608,7 @@ static void chassis_sub_init(void)
  */
 static void chassis_pub_push(void)
 {
-    pub_push_msg(pub_chassis,&cmd_chassis);
+
 }
 
 /**
@@ -616,5 +617,7 @@ static void chassis_pub_push(void)
 static void chassis_sub_pull(void)
 {
     sub_get_msg(sub_ins, &ins_data);
+    sub_get_msg(chassis_cmd_sub, &cmd_chassis);
+
 }
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
