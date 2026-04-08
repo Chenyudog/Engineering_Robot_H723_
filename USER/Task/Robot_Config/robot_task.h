@@ -7,6 +7,7 @@
 
 #include <cmsis_os.h>
 #include "chassis_task.h"
+#include "cmd_task.h"
 
 #ifdef BSP_USING_EXAMPLE_TASK
 #include "example_task.h"
@@ -86,7 +87,7 @@ typedef struct
     uint32_t tick_ms;          // 时间戳，可选
     dm_joint_feedback_t joint[6];   // 0~5 对应关节1~6
     uint8_t  gripper_state;
-    uint8_t arm_control_state;
+    Arm_mode_e arm_control_state;
 } dm_arm_feedback_msg_t;
 /** -------------------------------- DMmotor_Task Topics_Msg ------------------------------- **/
 

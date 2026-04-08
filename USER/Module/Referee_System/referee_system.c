@@ -13,7 +13,7 @@
 static referee_data_header_t referee_data_header;   //接收数据帧头结构体
 static referee_data_t referee_data;   //接收数据帧头结构体
 static unpack_data_t referee_unpack_obj;
-static float float_values[6] = {0}; // 存储转换后的7个float。改成队列传输
+static float float_values[6] = {0}; // 存储转换后的6个float。改成队列传输
 
 extern QueueHandle_t xKalmanOneQueue;
 

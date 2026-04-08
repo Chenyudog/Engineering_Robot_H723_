@@ -96,8 +96,8 @@ static float algorithm_task_dt = 0;       // 线程实际运行时间dt
 static float algorithm_task_delta = 0;    // 监测线程运行时间
 static float algorithm_task_start_dt = 0; // 监测线程开始时间
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
-static mat_type_t filtered_data[NUM_JOINTS];
-static float angles[6] = {0}; // 从队列中读取的角度值（度数）
+static mat_type_t filtered_data[NUM_JOINTS]= {0};
+static float angles[NUM_JOINTS] = {0}; // 从队列中读取的角度值（度数）
 
 extern QueueHandle_t xKalmanOneQueue;
 extern QueueHandle_t xControlQueue; // 队列句柄
@@ -568,7 +568,7 @@ static void AlgorithmTask_DiscreteExecutorStep(const AlgoFeedback_t *fb, const A
 void AlgorithmTask_Entry(void const * argument)
 {
 /* -------------------------------- 外设初始化段落 ------------------------------- */
-//    Init_KalmanFiltersOne(KALMAN_F, KALMAN_H, KALMAN_Q, KALMAN_R);
+    Init_KalmanFiltersOne(KALMAN_F, KALMAN_H, KALMAN_Q, KALMAN_R);
 //    /* MoveJ 初始化：只做一次 */
 //    /* Algo 初始化：只做一次 */
 //    Algo_InitContext();
