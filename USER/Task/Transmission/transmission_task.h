@@ -7,6 +7,7 @@
 
 
 #include <stdint.h>
+#include "cmd_task.h"
 
 struct pc_cmd_arm_msg
 {
@@ -17,7 +18,7 @@ struct pc_cmd_arm_msg
     float joint5_pos;
     float joint6_pos;
     uint8_t auto_state;
-    uint8_t gripper_ctrl;
+    Gripper_mode_e gripper_ctrl;
 };
 
 

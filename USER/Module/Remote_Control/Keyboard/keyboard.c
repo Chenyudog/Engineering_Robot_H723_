@@ -40,7 +40,7 @@ static float base_delta_w = MAX_CHASSIS_VW_SPEED  / KEY_ACC_TIME;
 #define MICRO_DECAY           0.95f   // 微调模式衰减系数
 #define DEAD_ZONE             5.0f    // 速度死区(mm/s)
 
-Gripper_mode_e Gripper_mode = Gripper_OPEN;
+extern Gripper_mode_e gripper_state;
 // 全局键盘控制对象定义
 keyboard_control_t keyboard = {
         .vx = 0, .vy = 0, .vw = 0,
@@ -168,11 +168,11 @@ void PC_keyboard_mouse(const pc_control_t *pc_control)
     key_state_machine(&keyboard.z, pc_control->keyboard.bit.Z);
     // X按键用于打开夹爪
     if(keyboard.x.state == KEY_PRESS_ONCE) {
-        Gripper_mode = Gripper_OPEN;
+        gripper_state = Gripper_OPEN;
     }
     // Z按键用于关闭夹爪
     if(keyboard.z.state == KEY_PRESS_ONCE) {
-        Gripper_mode = Gripper_CLOSE;
+        gripper_state = Gripper_CLOSE;
     }
 
 //    key_state_machine(&keyboard.g,pc_control->keyboard.bit.G);

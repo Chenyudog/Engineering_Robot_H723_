@@ -52,8 +52,8 @@ static pid_config_t execute_track_movej_config = INIT_PID_CONFIG(0.45, 0.0, 0.01
 static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤波的值
 static float dm_angles[6] = {0.0f};   // 队列读取值
 static float dm_motor_angles[6] = {0.0f};   // 期望角度值
-Gripper_mode_e gripper_state ;
-Arm_mode_e arm_control_state = 0;//这里用上位机调试，所以改为1
+Gripper_mode_e gripper_state = Gripper_OPEN;
+Arm_mode_e arm_control_state = 1;//这里用上位机调试，所以改为1
 
 extern QueueHandle_t xControlQueue;
 
@@ -353,7 +353,7 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-    if(dm_arm_feedback_pub_msg.arm_control_state == 0)//自定义控制模式
+    if(dm_arm_feedback_pub_msg.arm_control_state == User_defined_Controller)//自定义控制模式
     {
         if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS)
         {
@@ -366,9 +366,11 @@ void DMmotorTask_Entry(void const * argument)
             DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
             DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
             DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
+
         }
+        DMcontrol_motor_7(&hfdcan2,dm_arm_feedback_pub_msg.gripper_state);//夹爪控制
     }
-    else if(dm_arm_feedback_pub_msg.arm_control_state == 1)//PC控制模式
+    else if(dm_arm_feedback_pub_msg.arm_control_state == PC_based_Controller)//PC控制模式
     {
         dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
         dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
@@ -382,8 +384,9 @@ void DMmotorTask_Entry(void const * argument)
         DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
         DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
         DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
+        DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制
     }
-    DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制
+
 
 
 //        if (dmmotor_subscribe_movej_ref_data.seq != dmmotor_last_movej_seq)

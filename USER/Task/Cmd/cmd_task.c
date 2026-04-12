@@ -117,7 +117,7 @@ void CmdTask_Entry(void const * argument)
         remote_to_cmd_sbus();
         arm_cmd_state_machine(); // 机械臂状态机
         chassis_cmd_state_machine();
-        //store_ctrl();//存储罐控制
+        store_ctrl();//存储罐控制
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
@@ -212,7 +212,7 @@ void remote_to_cmd_sbus(void) {
             cmd_chassis.vw = (sbus_data_fdb.ch1 * CHASSIS_RC_MOVE_RATIO_W / RC_MAX_VALUE
                               + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw);
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
-        if (sbus_data_fdb.sw3 == RC_UP) {
+        if (sbus_data_fdb.sw3 == RC_MI) {
             gripper_state = Gripper_OPEN;
         } else if (sbus_data_fdb.sw3 == RC_DN) {
             gripper_state = Gripper_CLOSE;

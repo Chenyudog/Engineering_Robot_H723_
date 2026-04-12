@@ -129,6 +129,8 @@ int main(void)
     MX_USB_DEVICE_Init();
     dwt_init();
     BMI088_init(&hspi2);  // 陀螺仪已经校准
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);//初始化pwm
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
     // 达妙4310驱动设置
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
