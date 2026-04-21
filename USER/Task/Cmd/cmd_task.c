@@ -35,8 +35,8 @@
 
 static struct cmd_chassis_msg pc_cmd_data;
 static publisher_t *chassis_cmd_pub;
-static subscriber_t *pc_cmd;
-
+static subscriber_t *pc_cmd_sub;
+static publisher_t *dm_arm_ctrl_mode_pub;
 static void cmd_pub_init(void);
 static void cmd_sub_init(void);
 static void cmd_pub_push(void);
@@ -57,6 +57,7 @@ extern sbus_data_t sbus_data_fdb;
 extern keyboard_control_t keyboard;
 extern vt13_remote_parsed_data_t vt13_remote_parsed_data_fdb;
 static pc_control_t pc_data;
+static Arm_mode_e dm_arm_ctrl_mode;
 
 extern struct referee_fdb_msg referee_fdb;
 struct cmd_chassis_msg cmd_chassis;
@@ -137,6 +138,7 @@ void CmdTask_Entry(void const * argument)
 static void cmd_pub_init(void)
 {
     chassis_cmd_pub = pub_register("chassis_cmd_pub", sizeof(struct cmd_chassis_msg));
+    dm_arm_ctrl_mode_pub = pub_register("dm_arm_ctrl_mode", sizeof(Arm_mode_e));
 }
 
 
@@ -145,7 +147,8 @@ static void cmd_pub_init(void)
  */
 static void cmd_sub_init(void)
 {
-    pc_cmd = sub_register("pc_cmd_chassis", sizeof(struct cmd_chassis_msg));
+    pc_cmd_sub = sub_register("pc_cmd_chassis", sizeof(struct cmd_chassis_msg));
+
 }
 
 /**
@@ -153,7 +156,8 @@ static void cmd_sub_init(void)
  */
 static void cmd_sub_pull(void)
 {
-    sub_get_msg(pc_cmd, &pc_cmd_data);
+    sub_get_msg(pc_cmd_sub, &pc_cmd_data);
+
 }
 
 /**
@@ -162,6 +166,7 @@ static void cmd_sub_pull(void)
 static void cmd_pub_push(void)
 {
     pub_push_msg(chassis_cmd_pub,&cmd_chassis);
+    pub_push_msg(dm_arm_ctrl_mode_pub, &dm_arm_ctrl_mode);
 }
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
@@ -194,7 +199,7 @@ void remote_to_cmd_sbus(void) {
         //底盘失使能
         if(vt13_remote_parsed_data_fdb.fn_1 && !fn_1_last_state)
         {
-            cmd_chassis.ctrl_mode =! cmd_chassis.ctrl_mode;
+            dm_arm_ctrl_mode = !dm_arm_ctrl_mode;
         }
         fn_1_last_state = vt13_remote_parsed_data_fdb.fn_1;
         //机械臂失使能

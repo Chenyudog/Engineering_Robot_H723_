@@ -31,7 +31,7 @@
 #define USB_CMD_CHASSIS_DATA_LEN    12      // 数据部分长度（3个int32_t）
 #define CMD_CHASSIS_BUF_LEN         (USB_CMD_CHASSIS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+12(数据)+2(校验)
 
-#define USB_ARM_JOINTS_DATA_LEN    50      // 数据部分长度（12个int32_t+2个uint8_t）
+#define USB_ARM_JOINTS_DATA_LEN    51      // 数据部分长度（12个int32_t+3个uint8_t）
 #define USB_ARM_JOINTS_POS_DATA_LEN    24
 #define USB_ARM_JOINTS_VEL_DATA_LEN    24
 #define ARM_JOINTS_BUF_LEN         (USB_ARM_JOINTS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+49(数据)+2(校验)
@@ -193,7 +193,8 @@ void uppack_pc_cmd_arm_data(void)
                                                      (Rx_data[26] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[27] << 24)) /10000.0f;    // byte0占 7-0位
     receive_pc_cmd_arm_msg_data.gripper_ctrl = (Rx_data[28] << 0) ;
-    receive_pc_cmd_arm_msg_data.auto_state = (Rx_data[29] << 0);
+    receive_pc_cmd_arm_msg_data.control_state = (Rx_data[29] << 0);
+    receive_pc_cmd_arm_msg_data.pc_ctrl_process_state = (int8_t)(Rx_data[30] << 0);
 }
 
 static void transmission_topic_pub_push(void)
@@ -418,7 +419,7 @@ void ArmJointDataPack(void) {
     // 添加 gripper_state 和 auto_state
     memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_POS_DATA_LEN + USB_ARM_JOINTS_VEL_DATA_LEN ], &transmission_subscribe_arm_feedback_data.gripper_state, sizeof(int8_t));
     memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_POS_DATA_LEN + USB_ARM_JOINTS_VEL_DATA_LEN + sizeof(int8_t) ], &transmission_subscribe_arm_feedback_data.arm_control_state, sizeof(int8_t));
-
+    memcpy(&usb_txbuffer[HEAD_BUF_LEN + USB_ARM_JOINTS_POS_DATA_LEN + USB_ARM_JOINTS_VEL_DATA_LEN + 2 * sizeof(int8_t) ], &transmission_subscribe_arm_feedback_data.auto_ctrl_mode, sizeof(int8_t));
     // 计算校验码（覆盖0到最后一个数据字节）
     sum_check = 0;
     addr_check = 0;

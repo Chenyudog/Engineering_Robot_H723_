@@ -88,6 +88,7 @@ typedef struct
     dm_joint_feedback_t joint[6];   // 0~5 对应关节1~6
     Gripper_mode_e gripper_state;
     Arm_mode_e arm_control_state;
+    Auto_ctrl_mode auto_ctrl_mode;
 } dm_arm_feedback_msg_t;
 /** -------------------------------- DMmotor_Task Topics_Msg ------------------------------- **/
 

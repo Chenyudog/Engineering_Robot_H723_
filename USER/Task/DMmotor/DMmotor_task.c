@@ -27,10 +27,10 @@
 
 static struct pc_cmd_arm_msg dm_receive_pc_cmd_arm_msg_data = {0};
 static subscriber_t *subscribe_cmd_pc_arm_topic;
-
+static int8_t pc_ctrl_process_last_state;
 static dm_arm_feedback_msg_t dm_arm_feedback_pub_msg = {0};
 static publisher_t *publish_dm_arm_feedback_topic = NULL;
-
+static subscriber_t *publish_dm_arm_ctrl_mode_topic = NULL;
 extern sbus_data_t sbus_data_fdb;
 
 static void DMmotor_topic_pub_init(void);
@@ -53,8 +53,15 @@ static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤
 static float dm_angles[6] = {0.0f};   // 队列读取值
 static float dm_motor_angles[6] = {0.0f};   // 期望角度值
 Gripper_mode_e gripper_state = Gripper_OPEN;
-Arm_mode_e arm_control_state = 1;//这里用上位机调试，所以改为1
-
+//User_defined_Controller, //自定义模式控制器
+//PC_based_Controller,    //上位机控制
+static Arm_mode_e arm_control_state = User_defined_Controller;
+volatile static Auto_ctrl_mode auto_ctrl_mode = AUTO_RIGHT_PLACE ;
+//AUTO_WAIT,         // 0: 等待
+//AUTO_RIGHT_PLACE,   // 1: 左边放置
+//AUTO_RIGHT_GRAB,    // 2: 左边抓取
+//AUTO_LEFT_PLACE,  // 3: 右边放置
+//AUTO_LEFT_GRAB    // 4: 右边抓取
 extern QueueHandle_t xControlQueue;
 
 
@@ -283,6 +290,7 @@ static void dm_feedback_cache_update(void)
     }
     dm_arm_feedback_pub_msg.gripper_state = gripper_state;
     dm_arm_feedback_pub_msg.arm_control_state = arm_control_state;
+    dm_arm_feedback_pub_msg.auto_ctrl_mode = auto_ctrl_mode;
     taskEXIT_CRITICAL();
 }
 
@@ -385,6 +393,12 @@ void DMmotorTask_Entry(void const * argument)
         DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
         DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
         DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制
+        //用于循环抓取演示demo//上位机用的是6个步骤所以这里是6
+        if(dm_receive_pc_cmd_arm_msg_data.pc_ctrl_process_state == 6 && pc_ctrl_process_last_state != 6)//完成第一个步骤
+        {
+            auto_ctrl_mode = (auto_ctrl_mode % 4) + 1;
+        }
+        pc_ctrl_process_last_state = dm_receive_pc_cmd_arm_msg_data.pc_ctrl_process_state;
     }
 
 
@@ -416,6 +430,7 @@ void DMmotorTask_Entry(void const * argument)
 static void DMmotor_topic_pub_init(void)
 {
     publish_dm_arm_feedback_topic = pub_register("dm_arm_feedback_pub", sizeof(dm_arm_feedback_msg_t));
+
 }
 
 /**
@@ -425,6 +440,7 @@ static void DMmotor_topic_sub_init(void)
 {
     subscribe_cmd_pc_arm_topic = sub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
     subscribe_movej_ref_topic = sub_register("movej_ref_pub", sizeof(movej_ref_msg_t));
+    publish_dm_arm_ctrl_mode_topic = sub_register("dm_arm_ctrl_mode", sizeof(Arm_mode_e));
 }
 
 /**
@@ -433,6 +449,7 @@ static void DMmotor_topic_sub_init(void)
 static void DMmotor_topic_pub_push(void)
 {
     pub_push_msg(publish_dm_arm_feedback_topic, &dm_arm_feedback_pub_msg);
+
 }
 /**
  * @brief chassis 线程中所有订阅者获取更新话题
@@ -441,6 +458,7 @@ static void DMmotor_topic_sub_pull(void)
 {
     sub_get_msg(subscribe_cmd_pc_arm_topic, &dm_receive_pc_cmd_arm_msg_data);
     sub_get_msg(subscribe_movej_ref_topic, &dmmotor_subscribe_movej_ref_data);
+    sub_get_msg(publish_dm_arm_ctrl_mode_topic, &arm_control_state);
 }
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 

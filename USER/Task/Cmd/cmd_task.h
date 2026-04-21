@@ -13,8 +13,8 @@ void Gripper_ctrl(void);
 
 typedef enum
 {
-    Gripper_CLOSE,
     Gripper_OPEN,
+    Gripper_CLOSE,
 } Gripper_mode_e;
 
 typedef enum
@@ -29,5 +29,14 @@ typedef enum
     Store_NO2,
     Store_NO3,
 } Store_mode_e;
+
+typedef enum
+{
+    AUTO_WAIT,         // 0: 等待
+    AUTO_RIGHT_PLACE,   // 1: 左边放置
+    AUTO_RIGHT_GRAB,    // 2: 左边抓取
+    AUTO_LEFT_PLACE,  // 3: 右边放置
+    AUTO_LEFT_GRAB    // 4: 右边抓取
+} Auto_ctrl_mode;
 
 #endif //CTRBOARD_H7_ALL_CMD_TASK_H
