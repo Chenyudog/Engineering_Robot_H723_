@@ -168,27 +168,27 @@ void uppack_pc_cmd_chassis_data(void)
 void uppack_pc_cmd_arm_data(void)
 {
     //  /10000.0f与上位机约定好，因为传输float麻烦
-    receive_pc_cmd_arm_msg_data.joint1_pos = (float)((Rx_data[4] << 0) |  // byte3占 31-24位
+    receive_pc_cmd_arm_msg_data.joint_pos[0] = (float)((Rx_data[4] << 0) |  // byte3占 31-24位
                                                      (Rx_data[5] << 8) |  // byte2占 23-16位
                                                      (Rx_data[6] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[7] << 24)) /10000.0f;    // byte0占 7-0位
-    receive_pc_cmd_arm_msg_data.joint2_pos = (float)((Rx_data[8] << 0) |  // byte3占 31-24位
+    receive_pc_cmd_arm_msg_data.joint_pos[1] = (float)((Rx_data[8] << 0) |  // byte3占 31-24位
                                                      (Rx_data[9] << 8) |  // byte2占 23-16位
                                                      (Rx_data[10] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[11] << 24)) /10000.0f;    // byte0占 7-0位
-    receive_pc_cmd_arm_msg_data.joint3_pos = (float)((Rx_data[12] << 0) |  // byte3占 31-24位
+    receive_pc_cmd_arm_msg_data.joint_pos[2] = (float)((Rx_data[12] << 0) |  // byte3占 31-24位
                                                      (Rx_data[13] << 8) |  // byte2占 23-16位
                                                      (Rx_data[14] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[15] << 24))/10000.0f;    // byte0占 7-0位
-    receive_pc_cmd_arm_msg_data.joint4_pos = (float)((Rx_data[16] << 0) |  // byte3占 31-24位
+    receive_pc_cmd_arm_msg_data.joint_pos[3] = (float)((Rx_data[16] << 0) |  // byte3占 31-24位
                                                      (Rx_data[17] << 8) |  // byte2占 23-16位
                                                      (Rx_data[18] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[19] << 24)) /10000.0f;    // byte0占 7-0位
-    receive_pc_cmd_arm_msg_data.joint5_pos = (float)((Rx_data[20] << 0) |  // byte3占 31-24位
+    receive_pc_cmd_arm_msg_data.joint_pos[4] = (float)((Rx_data[20] << 0) |  // byte3占 31-24位
                                                      (Rx_data[21] << 8) |  // byte2占 23-16位
                                                      (Rx_data[22] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[23] << 24)) /10000.0f;    // byte0占 7-0位
-    receive_pc_cmd_arm_msg_data.joint6_pos = (float)((Rx_data[24] << 0) |  // byte3占 31-24位
+    receive_pc_cmd_arm_msg_data.joint_pos[5] = (float)((Rx_data[24] << 0) |  // byte3占 31-24位
                                                      (Rx_data[25] << 8) |  // byte2占 23-16位
                                                      (Rx_data[26] << 16)  |  // byte1占 15-8位
                                                      (Rx_data[27] << 24)) /10000.0f;    // byte0占 7-0位

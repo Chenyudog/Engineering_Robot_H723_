@@ -51,11 +51,13 @@ static pid_config_t execute_track_movej_config = INIT_PID_CONFIG(0.45, 0.0, 0.01
 
 static float current_angle[6] = {0.0f};        // 实际的关节输出角度，也是需要滤波的值
 static float dm_angles[6] = {0.0f};   // 队列读取值
-static float dm_motor_angles[6] = {0.0f};   // 期望角度值
+static float dm_pc_motor_angles[6] = {0.0f};   // 期望角度值
+static float dm_user_motor_angles[6] = {0.0f};   // 期望角度值
 Gripper_mode_e gripper_state = Gripper_OPEN;
 //User_defined_Controller, //自定义模式控制器
 //PC_based_Controller,    //上位机控制
 static Arm_mode_e arm_control_state = User_defined_Controller;
+static Arm_mode_e arm_control_last_state;
 volatile static Auto_ctrl_mode auto_ctrl_mode = AUTO_RIGHT_PLACE ;
 //AUTO_WAIT,         // 0: 等待
 //AUTO_RIGHT_PLACE,   // 1: 左边放置
@@ -78,6 +80,89 @@ struct arm_cmd_msg arm_cmd = {
         .ctrl_mode = ARM_DISABLE,
         .last_mode = ARM_DISABLE
 };
+
+void arm_mode_pc_change_to_pc_init_process(void)
+{
+    dm_motor_enable(&hfdcan3, &motor[Motor1]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan3, motor[Motor1].id, -dm_pc_motor_angles[0]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan3, &motor[Motor2]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan3, motor[Motor2].id, dm_pc_motor_angles[1]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+
+    dm_motor_enable(&hfdcan2, &motor[Motor3]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor3].id, dm_pc_motor_angles[2]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor4]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor4].id, -dm_pc_motor_angles[3]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor5]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor5].id, dm_user_motor_angles[4]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor6]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor6].id, -dm_pc_motor_angles[5]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor7]);//不用校准//开始发送夹爪初始化控制指令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    arm_cmd.ctrl_mode = ARM_ENABLE; // 使能机械臂
+    arm_cmd.last_mode = ARM_ENABLE;
+    vTaskDelay(2000); // 延时，等待电机稳定
+}
+
+void arm_mode_pc_change_to_user_init_process(void)
+{
+    dm_motor_enable(&hfdcan3, &motor[Motor1]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan3, motor[Motor1].id, -dm_user_motor_angles[0]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan3, &motor[Motor2]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan3, motor[Motor2].id, dm_user_motor_angles[1]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+
+    dm_motor_enable(&hfdcan2, &motor[Motor3]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor3].id, dm_user_motor_angles[2]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor4]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor4].id, -dm_user_motor_angles[3]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor5]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor5].id, dm_user_motor_angles[4]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor6]);
+    vTaskDelay(300); // 延时，等待电机稳定
+    pos_ctrl(&hfdcan2, motor[Motor6].id, -dm_user_motor_angles[5]/57.3f, 0.5f); // 发送控制命令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    dm_motor_enable(&hfdcan2, &motor[Motor7]);//不用校准//开始发送夹爪初始化控制指令
+    vTaskDelay(300); // 延时，等待电机稳定
+
+    arm_cmd.ctrl_mode = ARM_ENABLE; // 使能机械臂
+    arm_cmd.last_mode = ARM_ENABLE;
+    vTaskDelay(2000); // 延时，等待电机稳定
+}
+
 
 void arm_cmd_enable(void) {
     if (arm_cmd.last_mode == ARM_DISABLE && arm_cmd.ctrl_mode == ARM_ENABLE) {
@@ -289,8 +374,11 @@ static void dm_feedback_cache_update(void)
         dm_arm_feedback_pub_msg.update_mask |= (1u << i);  // 表示每个周期六个电机都更新
     }
     dm_arm_feedback_pub_msg.gripper_state = gripper_state;
+    arm_control_last_state = dm_arm_feedback_pub_msg.arm_control_state;
     dm_arm_feedback_pub_msg.arm_control_state = arm_control_state;
     dm_arm_feedback_pub_msg.auto_ctrl_mode = auto_ctrl_mode;
+
+
     taskEXIT_CRITICAL();
 }
 
@@ -306,6 +394,8 @@ void DMmotorTask_Entry(void const * argument)
     /** 为了避免执行器和规划器的调度误差，需要在执行器层给速度和角度添加误差跟踪PID **/
     // execute_track_movej_planner_pid = pid_register(&execute_track_movej_config);
     /* ------------------------ 规划器与执行器分割线 --------------------------------- */
+
+/* -------------------------------- 外设初始化段落 ------------------------------- */
     for (int i = 0; i < 6; i++) {
         motor_controls[i].current_angle_rad = 0.0f;
         motor_controls[i].last_angle_rad = 0.0f;
@@ -315,19 +405,19 @@ void DMmotorTask_Entry(void const * argument)
 
     dm_motor_enable(&hfdcan3, &motor[Motor1]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 1.2f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor1].id, 0, 1.0f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     dm_motor_enable(&hfdcan3, &motor[Motor2]);
     vTaskDelay(200); // 延时，等待电机稳定
-    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 1.2f); // 发送控制命令
+    pos_ctrl(&hfdcan3, motor[Motor2].id, 0, 1.0f); // 发送控制命令
     vTaskDelay(200); // 延时，等待电机稳定
 
     for(int i=2;i<6;i++)
     {
         dm_motor_enable(&hfdcan2, &motor[i]);
         vTaskDelay(200); // 延时，等待电机稳定
-        pos_ctrl(&hfdcan2, motor[i].id, 0, 1.2f); // 发送控制命令
+        pos_ctrl(&hfdcan2, motor[i].id, 0, 1.0f); // 发送控制命令
         vTaskDelay(200); // 延时，等待电机稳定
     }
     vTaskDelay(200); // 延时，等待电机稳定
@@ -337,8 +427,6 @@ void DMmotorTask_Entry(void const * argument)
     arm_cmd.ctrl_mode = ARM_ENABLE; // 使能机械臂
     arm_cmd.last_mode = ARM_ENABLE;
     vTaskDelay(2000); // 延时，等待电机稳定
-/* -------------------------------- 外设初始化段落 ------------------------------- */
-
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
     DMmotor_topic_sub_init();
     DMmotor_topic_pub_init();
@@ -361,37 +449,45 @@ void DMmotorTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
+
+    if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS)
+    {
+        for(uint8_t i=0;i<6;i++)
+        {
+            dm_user_motor_angles[i] = dm_angles[i];
+        }
+    }
+    if(dm_arm_feedback_pub_msg.arm_control_state == User_defined_Controller && arm_control_last_state != dm_arm_feedback_pub_msg.arm_control_state)
+    {
+        arm_mode_pc_change_to_user_init_process();
+    }
+    else if(dm_arm_feedback_pub_msg.arm_control_state == PC_based_Controller && arm_control_last_state != dm_arm_feedback_pub_msg.arm_control_state)
+    {
+        arm_mode_pc_change_to_pc_init_process();
+    }
     if(dm_arm_feedback_pub_msg.arm_control_state == User_defined_Controller)//自定义控制模式
     {
-        if (xQueueReceive(xControlQueue, dm_angles, 0) == pdPASS)
-        {
-            for(uint8_t i=0;i<6;i++){
-                dm_motor_angles[i] = dm_angles[i];
-            }
-            DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-            DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
-            DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
-            DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
-            DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
-            DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
 
-        }
+            DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_user_motor_angles[Motor1]);
+            DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_user_motor_angles[Motor2]);
+            DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_user_motor_angles[Motor3]);
+            DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_user_motor_angles[Motor4]);
+            DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_user_motor_angles[Motor5]);
+            DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_user_motor_angles[Motor6]);
         DMcontrol_motor_7(&hfdcan2,dm_arm_feedback_pub_msg.gripper_state);//夹爪控制
     }
     else if(dm_arm_feedback_pub_msg.arm_control_state == PC_based_Controller)//PC控制模式
     {
-        dm_motor_angles[0] = dm_receive_pc_cmd_arm_msg_data.joint1_pos * 57.3f;//避免破环校准功能状态机
-        dm_motor_angles[1] = dm_receive_pc_cmd_arm_msg_data.joint2_pos * 57.3f;
-        dm_motor_angles[2] = dm_receive_pc_cmd_arm_msg_data.joint3_pos * 57.3f;
-        dm_motor_angles[3] = dm_receive_pc_cmd_arm_msg_data.joint4_pos * 57.3f;
-        dm_motor_angles[4] = dm_receive_pc_cmd_arm_msg_data.joint5_pos * 57.3f;
-        dm_motor_angles[5] = dm_receive_pc_cmd_arm_msg_data.joint6_pos * 57.3f;
-        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_motor_angles[Motor1]);
-        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_motor_angles[Motor2]);
-        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_motor_angles[Motor3]);
-        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_motor_angles[Motor4]);
-        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_motor_angles[Motor5]);
-        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_motor_angles[Motor6]);
+        for (int i = 0; i < 6; i++)
+        {
+            dm_pc_motor_angles[i] = dm_receive_pc_cmd_arm_msg_data.joint_pos[i] * 57.3f;
+        }
+        DMcontrol_motor_1(&hfdcan3, &motor_controls[Motor1], dm_pc_motor_angles[Motor1]);
+        DMcontrol_motor_2(&hfdcan3, &motor_controls[Motor2], dm_pc_motor_angles[Motor2]);
+        DMcontrol_motor_3(&hfdcan2, &motor_controls[Motor3], dm_pc_motor_angles[Motor3]);
+        DMcontrol_motor_4(&hfdcan2, &motor_controls[Motor4], dm_pc_motor_angles[Motor4]);
+        DMcontrol_motor_5(&hfdcan2, &motor_controls[Motor5], dm_pc_motor_angles[Motor5]);
+        DMcontrol_motor_6(&hfdcan2, &motor_controls[Motor6], dm_pc_motor_angles[Motor6]);
         DMcontrol_motor_7(&hfdcan2,dm_receive_pc_cmd_arm_msg_data.gripper_ctrl);//夹爪控制
         //用于循环抓取演示demo//上位机用的是6个步骤所以这里是6
         if(dm_receive_pc_cmd_arm_msg_data.pc_ctrl_process_state == 6 && pc_ctrl_process_last_state != 6)//完成第一个步骤
@@ -470,32 +566,32 @@ float clamp_radians(float radians, float min_limit, float max_limit) {
 
 void smooth_motion_1(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[0] = target_angle;  // 直接使用目标角度，无需插值
-    pos_ctrl(hcan, motor->id, -current_angle[0], 10.0f);  // 符号处理保留
+    pos_ctrl(hcan, motor->id, -current_angle[0], 5.0f);  // 符号处理保留
 }
 
 void smooth_motion_2(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[1] = target_angle;  // 保留齿轮比转换
-    pos_ctrl(hcan, motor->id, current_angle[1], 10.0f);
+    pos_ctrl(hcan, motor->id, current_angle[1], 5.0f);
 }
 
 void smooth_motion_3(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[2] = target_angle;
-    pos_ctrl(hcan, motor->id, current_angle[2], 10.0f);//有点奇怪
+    pos_ctrl(hcan, motor->id, current_angle[2], 5.0f);//有点奇怪
 }
 
 void smooth_motion_4(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[3] = target_angle;
-    pos_ctrl(hcan, motor->id, -current_angle[3], 10.0f);
+    pos_ctrl(hcan, motor->id, -current_angle[3], 5.0f);
 }
 
 void smooth_motion_5(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[4] = target_angle;
-    pos_ctrl(hcan, motor->id, current_angle[4], 10.0f);
+    pos_ctrl(hcan, motor->id, current_angle[4], 5.0f);
 }
 
 void smooth_motion_6(hcan_t* hcan, motor_t* motor, float target_angle) {
     current_angle[5] = target_angle;
-    pos_ctrl(hcan, motor->id, -current_angle[5], 10.0f);
+    pos_ctrl(hcan, motor->id, -current_angle[5], 5.0f);
 }
 
 void smooth_motion_7(hcan_t* hcan, motor_t* motor, float target_rad,float target_torque,float target_vel,float kp,float kd) {
@@ -503,14 +599,21 @@ void smooth_motion_7(hcan_t* hcan, motor_t* motor, float target_rad,float target
 }
 
 void DMcontrol_motor_1(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
-    if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor1] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor1]);
+    if (!motor_control->calibrated)
+    {
+        if(dm_user_motor_angles[Motor1] != 0 )
+        {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_user_motor_angles[Motor1]);
             motor_control->calibrated = 1;
         }
-    }else if(motor_control->calibrated == 1) {
+        else if(dm_pc_motor_angles[Motor1] != 0 )
+        {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_pc_motor_angles[Motor1]);
+            motor_control->calibrated = 1;
+        }
+    }
+    else if(motor_control->calibrated == 1)
+    {
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
 
         float angle = clamp_radians(motor_control->current_angle_rad,motor_control->motor_min_limit, motor_control->motor_max_limit);
@@ -520,102 +623,88 @@ void DMcontrol_motor_1(hcan_t* hcan, DMmotorControl* motor_control, float target
         motor_control->last_angle_rad = motor_control->current_angle_rad;
     }
 }
-
 void DMcontrol_motor_2(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
     if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor2] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor2]);
+        if (dm_user_motor_angles[Motor2] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_user_motor_angles[Motor2]);
+            motor_control->calibrated = 1;
+        } else if (dm_pc_motor_angles[Motor2] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_pc_motor_angles[Motor2]);
             motor_control->calibrated = 1;
         }
-    }else if(motor_control->calibrated == 1){
+    } else if (motor_control->calibrated == 1) {
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
-
         float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
-
         smooth_motion_2(hcan, &motor[Motor2], angle);
-
         motor_control->last_angle_rad = motor_control->current_angle_rad;
     }
 }
 
 void DMcontrol_motor_3(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
     if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor3] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor3]);
+        if (dm_user_motor_angles[Motor3] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_user_motor_angles[Motor3]);
+            motor_control->calibrated = 1;
+        } else if (dm_pc_motor_angles[Motor3] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_pc_motor_angles[Motor3]);
             motor_control->calibrated = 1;
         }
-
-    }else if(motor_control->calibrated == 1){
-
+    } else if (motor_control->calibrated == 1) {
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
-
         float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
-
         smooth_motion_3(hcan, &motor[Motor3], angle);
-
         motor_control->last_angle_rad = motor_control->current_angle_rad;
     }
 }
 
 void DMcontrol_motor_4(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
     if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor4] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor4]);
+        if (dm_user_motor_angles[Motor4] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_user_motor_angles[Motor4]);
+            motor_control->calibrated = 1;
+        } else if (dm_pc_motor_angles[Motor4] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_pc_motor_angles[Motor4]);
             motor_control->calibrated = 1;
         }
-    }else if(motor_control->calibrated == 1){
+    } else if (motor_control->calibrated == 1) {
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
-
         float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
-
         smooth_motion_4(hcan, &motor[Motor4], angle);
-
         motor_control->last_angle_rad = motor_control->current_angle_rad;
     }
 }
 
 void DMcontrol_motor_5(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
     if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor5] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor5]);
+        if (dm_user_motor_angles[Motor5] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_user_motor_angles[Motor5]);
+            motor_control->calibrated = 1;
+        } else if (dm_pc_motor_angles[Motor5] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_pc_motor_angles[Motor5]);
             motor_control->calibrated = 1;
         }
-    }else if(motor_control->calibrated == 1){
+    } else if (motor_control->calibrated == 1) {
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
-
         float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
-
         smooth_motion_5(hcan, &motor[Motor5], angle);
-
         motor_control->last_angle_rad = motor_control->current_angle_rad;
     }
 }
 
 void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target_angle) {
     if (!motor_control->calibrated) {
-        if (dm_motor_angles[Motor6] == 0) {
-            motor_control->calibrated = 0;
-        }else{
-            motor_control->initial_offset_rad = DEG_TO_RAD(dm_motor_angles[Motor6]);
+        if (dm_user_motor_angles[Motor6] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_user_motor_angles[Motor6]);
+            motor_control->calibrated = 1;
+        } else if (dm_pc_motor_angles[Motor6] != 0) {
+            motor_control->initial_offset_rad = DEG_TO_RAD(dm_pc_motor_angles[Motor6]);
             motor_control->calibrated = 1;
         }
-    }else if(motor_control->calibrated == 1){
+    } else if (motor_control->calibrated == 1) {
         motor_control->current_angle_rad = DEG_TO_RAD(target_angle);
-
         float angle = clamp_radians(motor_control->current_angle_rad, motor_control->motor_min_limit, motor_control->motor_max_limit);
-
         smooth_motion_6(hcan, &motor[Motor6], angle);
-
         motor_control->last_angle_rad = motor_control->current_angle_rad;
-
     }
 }
 
@@ -643,5 +732,4 @@ void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl)
 
     smooth_motion_7(hcan, &motor[Motor7], target_rad, target_torque ,target_vel,target_kp,target_kd);
 }
-
 

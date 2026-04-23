@@ -157,7 +157,6 @@ static void cmd_sub_init(void)
 static void cmd_sub_pull(void)
 {
     sub_get_msg(pc_cmd_sub, &pc_cmd_data);
-
 }
 
 /**

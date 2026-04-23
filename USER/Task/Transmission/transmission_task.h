@@ -11,12 +11,7 @@
 
 struct pc_cmd_arm_msg
 {
-    float joint1_pos;
-    float joint2_pos;
-    float joint3_pos;
-    float joint4_pos;
-    float joint5_pos;
-    float joint6_pos;
+    float joint_pos[6];
     uint8_t control_state;
     Gripper_mode_e gripper_ctrl;
     int8_t pc_ctrl_process_state;
