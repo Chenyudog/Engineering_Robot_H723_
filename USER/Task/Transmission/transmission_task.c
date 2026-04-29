@@ -36,16 +36,21 @@
 #define USB_ARM_JOINTS_VEL_DATA_LEN    24
 #define ARM_JOINTS_BUF_LEN         (USB_ARM_JOINTS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+49(数据)+2(校验)
 
+#define USB_VOICE_CONTROL_LEN    24
+#define VOICE_CONTROL_BUF_LEN         (HEAD_BUF_LEN+USB_VOICE_CONTROL_LEN+CRC_BUF_LEN)      // ??????4(??)+24(????)+2(У??)
+
 #define HEADER_SOF 0xFF
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 static struct ins_msg transmission_subscribe_ins_data;
 static struct cmd_chassis_msg receive_pc_cmd_chassis_data;
 static struct pc_cmd_arm_msg receive_pc_cmd_arm_msg_data;
+static struct pc_cmd_voice_control_msg receive_pc_cmd_voice_control_data;
 static dm_arm_feedback_msg_t transmission_subscribe_arm_feedback_data;
 
 static publisher_t *pc_cmd_arm_topic_publish;
 static publisher_t *pc_cmd_chassis_topic_publish;
+static publisher_t *pc_cmd_voice_control_publisher;
 static subscriber_t *subscribe_ins_topic;
 static subscriber_t *subscribe_cmd_chassis_topic;
 static subscriber_t *subscribe_arm_feedback_topic;
@@ -140,6 +145,7 @@ static void transmission_topic_pub_init(void)
 {
     pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis",sizeof(struct cmd_chassis_msg));
     pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
+    pc_cmd_voice_control_publisher =pub_register("voice_control_pub",sizeof(struct pc_cmd_voice_control_msg));
 }
 
 static void transmission_topic_sub_init(void)
@@ -197,10 +203,27 @@ void uppack_pc_cmd_arm_data(void)
     receive_pc_cmd_arm_msg_data.pc_ctrl_process_state = (int8_t)(Rx_data[30] << 0);
 }
 
+
+void uppack_pc_cmd_voice_control(void)
+{
+    receive_pc_cmd_voice_control_data.vx = (float)((Rx_data[4] << 0) |  // byte3占 31-24位
+                                          (Rx_data[5] << 8) |  // byte2占 23-16位
+                                          (Rx_data[6] << 16)  |  // byte1占 15-8位
+                                          (Rx_data[7] << 24)) / 10000.0f;    // byte0占 7-0位
+    receive_pc_cmd_voice_control_data.vy = (float)((Rx_data[8] << 0) |  // byte3? 31-24λ
+                                             (Rx_data[9] << 8) |  // byte2? 23-16λ
+                                             (Rx_data[10] << 16)  |  // byte1? 15-8λ
+                                             (Rx_data[11] << 24)) / 10000.0f;    // byte0? 7-0λ
+    receive_pc_cmd_voice_control_data.vw = (float)((Rx_data[24] << 0) |  // byte3? 31-24λ
+                                              (Rx_data[25] << 8) |  // byte2? 23-16λ
+                                              (Rx_data[26] << 16)  |  // byte1? 15-8λ
+                                              (Rx_data[27] << 24)) / 10000.0f;    // byte0? 7-0λ
+}
 static void transmission_topic_pub_push(void)
 {
     pub_push_msg(pc_cmd_chassis_topic_publish,&receive_pc_cmd_chassis_data);
     pub_push_msg(pc_cmd_arm_topic_publish,&receive_pc_cmd_arm_msg_data);
+    pub_push_msg(pc_cmd_voice_control_publisher,&receive_pc_cmd_voice_control_data);
 }
 
 static void transmission_topic_sub_pull(void)
