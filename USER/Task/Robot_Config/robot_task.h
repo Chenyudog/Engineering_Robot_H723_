@@ -116,6 +116,14 @@ struct cmd_chassis_msg
     chassis_mode_e ctrl_mode;  // 当前底盘控制模式
     chassis_mode_e last_mode;  // 上一次底盘控制模式
 };
+
+struct pc_cmd_voice_control_msg
+{
+    float vx;                  // 前进方向速度
+    float vy;                  // 横移方向速度
+    float vw;                  // 旋转速度
+};
+
 /** -------------------------------- Cmd_Task Topics_Msg ------------------------------- **/
 
 /** --------------------------- Transmission_Task Topics_Msg --------------------------- **/
