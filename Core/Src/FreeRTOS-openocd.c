@@ -13,6 +13,7 @@
 
 #ifdef __GNUC__
 #define USED __attribute__((used))
+
 #else
 #define USED
 #endif

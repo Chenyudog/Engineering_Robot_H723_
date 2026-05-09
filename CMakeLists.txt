@@ -83,8 +83,8 @@ elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel")
     message(STATUS "Maximum optimization for size")
     add_compile_options(-Os)
 else ()
-    message(STATUS "No optimization, maximum debug info included")
-    add_compile_options(-O0 -g3)
+    message(STATUS "Minimal optimization, debug info included")
+    add_compile_options(-O0 -g3 -gdwarf-4)
 endif ()
 
 # 包含目录（根据实际路径调整）
@@ -148,7 +148,6 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Task/Transmission
         USER/Task/USART
         USER/Task/ina226
-
 )
 
 add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32H723xx -DUSE_PWR_LDO_SUPPLY)
