@@ -5,7 +5,7 @@
 
 
 // ************************** 测量参数（根据校准值调整） **************************
-#define INA226_CURRENT_LSB      0.0005f  // 电流LSB：0.5mA/bit              //通过具体需求修改
+#define INA226_CURRENT_LSB      0.001f  // 电流LSB：1mA/bit              //通过具体需求修改
 #define INA226_BUS_V_LSB        1.25f   // 总线电压LSB：1.25mV/bit        //固定不用修改
 #define INA226_SHUNT_V_LSB      2.5f    // 分流电压LSB：2.5uV/bit         //固定不用修改
 #define INA226_POWER_LSB        (INA226_CURRENT_LSB*25.0f)  // 功率LSB：25mW/bit（=25*电流LSB） //半固定不用修改
@@ -16,7 +16,7 @@
 #define INA226_CONFIG_DEFAULT   0x0727   //对照文件配置   //0x0327：平均64次 1.1ms 1.1ms 连续测分流和总线
 
 // 校准寄存器
-#define INA226_CALIB_DEFAULT    0x0400   //对照文件配置    //0x0400 A_LSB取0.5mA
+#define INA226_CALIB_DEFAULT    0x1400   //对照文件配置    //0x0400 A_LSB取1mA  //这个宏定义就是CAL转为十六进制
 
 
 // ************************** INA226 I2C地址配置 **************************

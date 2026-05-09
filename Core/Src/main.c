@@ -23,6 +23,7 @@
 #include "dma.h"
 #include "fdcan.h"
 #include "memorymap.h"
+#include "octospi.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -122,17 +123,20 @@ int main(void)
   MX_ADC1_Init();
   MX_SPI1_Init();
   MX_TIM2_Init();
+  MX_OCTOSPI2_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
     MX_USB_DEVICE_Init();
     dwt_init();
     BMI088_init(&hspi2);  // 陀螺仪已经校准
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);//初始化pwm
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
     // 达妙4310驱动设置
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
     bsp_fdcan_set_baud(&hfdcan1, CAN_CLASS, CAN_BR_1M);
     bsp_fdcan_set_baud(&hfdcan2, CAN_CLASS, CAN_BR_1M);
     bsp_fdcan_set_baud(&hfdcan3, CAN_CLASS, CAN_BR_1M);
-////	bsp_fdcan_set_baud(&hfdcan1, CAN_FD_BRS, CAN_BR_1M);
     bsp_can_init();
     dm_motor_init();
     BSPLogInit();
@@ -151,14 +155,6 @@ int main(void)
         Error_Handler();
     }
 
-
-//    write_motor_data(motor[Motor1].id, 10, mit_mode, 0, 0, 0);
-//	write_motor_data(motor[Motor1].id, 35, CAN_BR_5M, 0, 0, 0);
-//    	read_motor_data(motor[Motor1].id, RID_CAN_BR);
-//    dm_motor_disable(&hfdcan2, &motor[Motor1]);
-//    save_motor_data(motor[Motor1].id, 10);
-//    HAL_TIM_Base_Start_IT(&htim3);
-//	read_all_motor_data(&motor[Motor1]);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */

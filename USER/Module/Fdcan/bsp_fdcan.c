@@ -1,6 +1,7 @@
 #include "bsp_fdcan.h"
 #include "dj_motor.h"
 #include "dm_motor_ctrl.h"
+#include "DMmotor_task.h"
 
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
@@ -56,6 +57,7 @@ void bsp_can_init(void)
 {
 
     can_filter_init();
+
     HAL_FDCAN_Start(&hfdcan1);                               //开启FDCAN
     HAL_FDCAN_Start(&hfdcan2);
     HAL_FDCAN_Start(&hfdcan3);
@@ -63,13 +65,15 @@ void bsp_can_init(void)
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
-//
+
+    // 开启关节电机读取中断
     HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
     HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
-    //HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_WATERMARK, 0); ////一开就疯
-
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO0_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_FIFO1_WATERMARK, 0);
+    HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_RX_BUFFER_NEW_MESSAGE, 0);
 
 }
 /**
@@ -82,35 +86,43 @@ void bsp_can_init(void)
 **/
 void can_filter_init(void)
 {
-    FDCAN_FilterTypeDef fdcan_filter;
+    FDCAN_FilterTypeDef fdcan_filter1;
+    //过滤器1负责FIFO0
+    fdcan_filter1.IdType = FDCAN_STANDARD_ID;                       //标准ID
+    fdcan_filter1.FilterIndex = 0;                                  //滤波器索引
+    fdcan_filter1.FilterType = FDCAN_FILTER_MASK;
+    fdcan_filter1.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;           //过滤器0关联到FIFO0
+    fdcan_filter1.FilterID1 = 0x00;
+    fdcan_filter1.FilterID2 = 0x00;
 
-    fdcan_filter.IdType = FDCAN_STANDARD_ID;                       //标准ID
-    fdcan_filter.FilterIndex = 0;                                  //滤波器索引
-    fdcan_filter.FilterType = FDCAN_FILTER_MASK;
-    fdcan_filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;           //过滤器0关联到FIFO0
-    fdcan_filter.FilterID1 = 0x00;
-    fdcan_filter.FilterID2 = 0x00;
+    FDCAN_FilterTypeDef fdcan_filter2;
+    //过滤器2负责FIFO1
+    fdcan_filter2.IdType = FDCAN_STANDARD_ID;                       //标准ID
+    fdcan_filter2.FilterIndex = 0;                                  //滤波器索引
+    fdcan_filter2.FilterType = FDCAN_FILTER_MASK;
+    fdcan_filter2.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;           //过滤器0关联到FIFO0
+    fdcan_filter2.FilterID1 = 0x00;
+    fdcan_filter2.FilterID2 = 0x00;
 
-    HAL_FDCAN_ConfigFilter(&hfdcan1,&fdcan_filter); 		 				  //接收ID2
+    HAL_FDCAN_ConfigFilter(&hfdcan1,&fdcan_filter1); 		 				  //接收ID2
     //拒绝接收匹配不成功的标准ID和扩展ID,不接受远程帧
     HAL_FDCAN_ConfigGlobalFilter(&hfdcan1,FDCAN_REJECT,FDCAN_REJECT,FDCAN_REJECT_REMOTE,FDCAN_REJECT_REMOTE);
     HAL_FDCAN_ConfigFifoWatermark(&hfdcan1, FDCAN_CFG_RX_FIFO0, 1);
-//	HAL_FDCAN_ConfigFifoWatermark(&hfdcan1, FDCAN_CFG_RX_FIFO1, 1);
-//	HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_TX_COMPLETE, FDCAN_TX_BUFFER0);
+    //HAL_FDCAN_ConfigFifoWatermark(&hfdcan1, FDCAN_CFG_RX_FIFO1, 1);
 
-    HAL_FDCAN_ConfigFilter(&hfdcan2,&fdcan_filter); 		 				  //接收ID2
+    HAL_FDCAN_ConfigFilter(&hfdcan2,&fdcan_filter1); 		 				  //接收ID2
     //拒绝接收匹配不成功的标准ID和扩展ID,不接受远程帧
     HAL_FDCAN_ConfigGlobalFilter(&hfdcan2,FDCAN_REJECT,FDCAN_REJECT,FDCAN_REJECT_REMOTE,FDCAN_REJECT_REMOTE);
     HAL_FDCAN_ConfigFifoWatermark(&hfdcan2, FDCAN_CFG_RX_FIFO0, 1);
-//	HAL_FDCAN_ConfigFifoWatermark(&hfdcan2, FDCAN_CFG_RX_FIFO1, 1);
-//	HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_TX_COMPLETE, FDCAN_TX_BUFFER0);
+   // HAL_FDCAN_ConfigFifoWatermark(&hfdcan2, FDCAN_CFG_RX_FIFO1, 1);
 
-    HAL_FDCAN_ConfigFilter(&hfdcan3,&fdcan_filter); 		 				  //接收ID2
+
+    HAL_FDCAN_ConfigFilter(&hfdcan3,&fdcan_filter1); 		 				  //接收ID2
     //拒绝接收匹配不成功的标准ID和扩展ID,不接受远程帧
     HAL_FDCAN_ConfigGlobalFilter(&hfdcan3,FDCAN_REJECT,FDCAN_REJECT,FDCAN_REJECT_REMOTE,FDCAN_REJECT_REMOTE);
+    //HAL_FDCAN_ConfigFifoWatermark(&hfdcan3, FDCAN_CFG_RX_FIFO1, 1);
     HAL_FDCAN_ConfigFifoWatermark(&hfdcan3, FDCAN_CFG_RX_FIFO0, 1);
-//	HAL_FDCAN_ConfigFifoWatermark(&hfdcan3, FDCAN_CFG_RX_FIFO1, 1);
-//	HAL_FDCAN_ActivateNotification(&hfdcan3, FDCAN_IT_TX_COMPLETE, FDCAN_TX_BUFFER0);
+
 }
 void bsp_fdcan_set_baud(hcan_t *hfdcan, uint8_t mode, uint8_t baud)
 {
@@ -226,11 +238,49 @@ uint8_t fdcanx_send_data(hcan_t *hfdcan, uint16_t id, uint8_t *data, uint32_t le
 * @details:    	接收数据
 ************************************************************************
 **/
-uint8_t fdcanx_receive(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf)
+uint8_t fdcanx_receive_FIFO0(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf)
 {
     FDCAN_RxHeaderTypeDef pRxHeader;
     uint8_t len;
     if(HAL_FDCAN_GetRxMessage(hfdcan,FDCAN_RX_FIFO0, &pRxHeader, buf)==HAL_OK)
+    {
+        *rec_id = pRxHeader.Identifier;
+        if(pRxHeader.DataLength<=FDCAN_DLC_BYTES_8)
+            len = pRxHeader.DataLength;
+        else if(pRxHeader.DataLength<=FDCAN_DLC_BYTES_12)
+            len = 12;
+        else if(pRxHeader.DataLength==FDCAN_DLC_BYTES_16)
+            len = 16;
+        else if(pRxHeader.DataLength==FDCAN_DLC_BYTES_20)
+            len = 20;
+        else if(pRxHeader.DataLength==FDCAN_DLC_BYTES_24)
+            len = 24;
+        else if(pRxHeader.DataLength==FDCAN_DLC_BYTES_32)
+            len = 32;
+        else if(pRxHeader.DataLength==FDCAN_DLC_BYTES_48)
+            len = 48;
+        else if(pRxHeader.DataLength==FDCAN_DLC_BYTES_64)
+            len = 64;
+
+        return len;//接收数据
+    }
+    return 0;
+}
+
+/**
+************************************************************************
+* @brief:      	fdcanx_receive(FDCAN_HandleTypeDef *hfdcan, uint8_t *buf)
+* @param:       hfdcan：FDCAN句柄
+* @param:       buf：接收数据缓存
+* @retval:     	接收的数据长度
+* @details:    	接收数据
+************************************************************************
+**/
+uint8_t fdcanx_receive_FIFO1(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf)
+{
+    FDCAN_RxHeaderTypeDef pRxHeader;
+    uint8_t len;
+    if(HAL_FDCAN_GetRxMessage(hfdcan,FDCAN_RX_FIFO1, &pRxHeader, buf)==HAL_OK)
     {
         *rec_id = pRxHeader.Identifier;
         if(pRxHeader.DataLength<=FDCAN_DLC_BYTES_8)
@@ -260,24 +310,36 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan,uint32_t RxFifo0ITs)
 {
     FDCAN_RxHeaderTypeDef rx_header;
     uint8_t rx_data[8];
+    //!!!利用这个循环就要确保数据能在接收后被处理掉，不然就会死循环
     while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0)) // FIFO不为空,有可能在其他中断时有多帧数据进入
     {
         if (hfdcan == &hfdcan1)
         {
-
             HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rx_header, rx_data);
             dji_motor_rx_callback(rx_header.Identifier, rx_data);
         }
         else if (hfdcan == &hfdcan2)
         {
-            fdcan2_rx_callback();
+            fdcan2_process_callback();//234567号电机
         }
         else if (hfdcan == &hfdcan3)
         {
-            fdcan3_rx_callback();
+            fdcan3_process_callback();//1号电机
         }
     }
 }
+
+
+void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan,uint32_t RxFifo0ITs)
+{
+    FDCAN_RxHeaderTypeDef rx_header;
+    uint8_t rx_data[8];
+    while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO1)) // FIFO不为空,有可能在其他中断时有多帧数据进入
+    {
+
+    }
+}
+
 
 
 void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorStatusITs)
@@ -303,252 +365,61 @@ void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorSt
 *               当接收到ID为0时，调用dm4310_fbdata函数更新Motor的反馈数据。
 ************************************************************************
 **/
-void fdcan2_rx_callback(void)
+void fdcan2_process_callback(void)
 {
     uint16_t rec_id;
     uint8_t rx_data[8] = {0};
-    static float motor2_buf[5] = {0.0f};
-    static uint8_t motor2_buf_idx = 0;
-    static float motor3_buf[5] = {0.0f};
-    static uint8_t motor3_buf_idx = 0;
-    static float motor4_buf[5] = {0.0f};
-    static uint8_t motor4_buf_idx = 0;
-    static float motor5_buf[5] = {0.0f};
-    static uint8_t motor5_buf_idx = 0;
-    static float motor6_buf[5] = {0.0f};
-    static uint8_t motor6_buf_idx = 0;
-
-    fdcanx_receive(&hfdcan2, &rec_id, rx_data);
+    // 取出一帧fdcan2中FIFO 0的原始数据帧，开始解包函数
+    fdcanx_receive_FIFO0(&hfdcan2, &rec_id, rx_data);//取出接收到的数据帧
+    // 获取电机ID号
     rec_id = (rx_data[0]) & 0x0F;
     switch (rec_id) {
-        case 1: {
-            float raw_pos;
-            motor[Motor1].para.last_pos = motor[Motor1].para.pos;
-            dm_motor_fbdata(&motor[Motor1], rx_data);
-            raw_pos = motor[Motor1].para.pos;
-
-            motor2_buf[motor2_buf_idx] = raw_pos;
-            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor2_buf[i];
-            }
-
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor1].para.pos = sorted_buf[2];
-            if (motor[Motor1].para.pos > 150.0f)
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            else if (motor[Motor1].para.pos < -10.0f)
-                motor[Motor1].para.pos = motor[Motor1].para.last_pos;
-            break;
-        }
-
-        case 2: {
-            float raw_pos;
-            motor[Motor2].para.last_pos = motor[Motor2].para.pos;
-            dm_motor_fbdata(&motor[Motor2], rx_data);
-            raw_pos = motor[Motor2].para.pos;
-            raw_pos /= 2.4f;
-
-            motor2_buf[motor2_buf_idx] = raw_pos;
-            motor2_buf_idx = (motor2_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor2_buf[i];
-            }
-
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor2].para.pos = sorted_buf[2];
-            if (motor[Motor2].para.pos > 150.0f)
-                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-            else if (motor[Motor2].para.pos < -10.0f)
-                motor[Motor2].para.pos = motor[Motor2].para.last_pos;
-            break;
-        }
-
-        case 3: {
-            float raw_pos;
-            motor[Motor3].para.last_pos = motor[Motor3].para.pos;
+        case 0x03: {
+            // 调用关节电机解包函数，解出位置速度和力矩的值，并存入到对应的结构体中
             dm_motor_fbdata(&motor[Motor3], rx_data);
-            raw_pos = motor[Motor3].para.pos;
-
-            motor3_buf[motor3_buf_idx] = raw_pos;
-            motor3_buf_idx = (motor3_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor3_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor3].para.pos = sorted_buf[2];
-            if (motor[Motor3].para.pos > 10.0f)
-                motor[Motor3].para.pos = motor[Motor3].para.last_pos;
-            else if (motor[Motor3].para.pos < -150.0f)
-                motor[Motor3].para.pos = motor[Motor3].para.last_pos;
             break;
         }
 
-        case 4: {
-            float raw_pos;
-            motor[Motor4].para.last_pos = motor[Motor4].para.pos;
+        case 0x04: {
             dm_motor_fbdata(&motor[Motor4], rx_data);
-            raw_pos = motor[Motor4].para.pos;
-
-            motor4_buf[motor4_buf_idx] = raw_pos;
-            motor4_buf_idx = (motor4_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor4_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor4].para.pos = sorted_buf[2];
-            if (motor[Motor4].para.pos > 180.0f)
-                motor[Motor4].para.pos = motor[Motor4].para.last_pos;
-            else if (motor[Motor4].para.pos < -180.0f)
-                motor[Motor4].para.pos = motor[Motor4].para.last_pos;
             break;
         }
 
-        case 5: {
-            float raw_pos;
-            motor[Motor5].para.last_pos = motor[Motor5].para.pos;
+        case 0x05: {
             dm_motor_fbdata(&motor[Motor5], rx_data);
-            raw_pos = motor[Motor5].para.pos;
-            raw_pos *= 1.55f;
-
-            motor5_buf[motor5_buf_idx] = raw_pos;
-            motor5_buf_idx = (motor5_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor5_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor5].para.pos = sorted_buf[2];
-            if (motor[Motor5].para.pos > 120.0f)
-                motor[Motor5].para.pos = motor[Motor5].para.last_pos;
-            else if (motor[Motor5].para.pos < -120.0f)
-                motor[Motor5].para.pos = motor[Motor5].para.last_pos;
             break;
         }
 
-        case 6: {
-            float raw_pos;
-            motor[Motor6].para.last_pos = motor[Motor6].para.pos;
+        case 0x06: {
             dm_motor_fbdata(&motor[Motor6], rx_data);
-            raw_pos = motor[Motor6].para.pos;
-            raw_pos = (raw_pos + motor[Motor5].para.pos / 1.55f) * 3.24f;
-
-            motor6_buf[motor6_buf_idx] = raw_pos;
-            motor6_buf_idx = (motor6_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor6_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor6].para.pos = sorted_buf[2];
-            if (motor[Motor6].para.pos > 200.0f)
-                motor[Motor6].para.pos = motor[Motor6].para.last_pos;
-            else if (motor[Motor6].para.pos < -200.0f)
-                motor[Motor6].para.pos = motor[Motor6].para.last_pos;
             break;
         }
 
-        case 7: {
-            float raw_pos;
-            motor[Motor7].para.last_pos = motor[Motor7].para.pos;
+        case 0x07: {//夹爪注重于力矩控制故不需要位置控制
             dm_motor_fbdata(&motor[Motor7], rx_data);
-            raw_pos = motor[Motor7].para.pos;
-
-            motor6_buf[motor6_buf_idx] = raw_pos;
-            motor6_buf_idx = (motor6_buf_idx + 1) % 5;
-
-            float sorted_buf[5];
-            for (int i = 0; i < 5; i++) {
-                sorted_buf[i] = motor6_buf[i];
-            }
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4 - i; j++) {
-                    if (sorted_buf[j] > sorted_buf[j + 1]) {
-                        float temp = sorted_buf[j];
-                        sorted_buf[j] = sorted_buf[j + 1];
-                        sorted_buf[j + 1] = temp;
-                    }
-                }
-            }
-
-            motor[Motor7].para.pos = sorted_buf[2];
-            if (motor[Motor7].para.pos > 200.0f)
-                motor[Motor7].para.pos = motor[Motor7].para.last_pos;
-            else if (motor[Motor6].para.pos < -200.0f)
-                motor[Motor7].para.pos = motor[Motor7].para.last_pos;
             break;
         }
         default:
             break;
     }
 }
-void fdcan3_rx_callback(void)
-{
 
+
+void fdcan3_process_callback(void)
+{
+    uint16_t rec_id;
+    uint8_t rx_data[8] = {0};
+    fdcanx_receive_FIFO0(&hfdcan3, &rec_id, rx_data);
+    rec_id = (rx_data[0]) & 0x0F;
+
+    if(rec_id == 0x01)//处理一号电机数据
+    {
+        dm_motor_fbdata(&motor[Motor1], rx_data);
+    }
+    else if(rec_id == 0x02)//处理一号电机数据
+    {
+        dm_motor_fbdata(&motor[Motor2], rx_data);
+    }
 }
 
 

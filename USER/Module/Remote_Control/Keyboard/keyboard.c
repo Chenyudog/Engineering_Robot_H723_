@@ -12,9 +12,11 @@
 #include "robot_task.h"
 #include "pump.h"
 #include "DMmotor_task.h"
+#include "cmd_task.h"
+
 
 /* key acceleration time */
-#define KEY_ACC_TIME     1700  //ms
+#define KEY_ACC_TIME     2200  //ms
 
 extern struct referee_fdb_msg referee_fdb;
 extern struct cmd_chassis_msg cmd_chassis;
@@ -22,7 +24,7 @@ extern ramp_obj_t *km_vx_ramp;//x轴控制斜坡
 extern ramp_obj_t *km_vy_ramp;//y周控制斜坡
 extern ramp_obj_t *km_vw_ramp; // 旋转控制斜坡，需在外部定义
 
-static float base_delta = 500.0f  / KEY_ACC_TIME;
+static float base_delta = 3.0f  / KEY_ACC_TIME;
 static float base_delta_w = MAX_CHASSIS_VW_SPEED  / KEY_ACC_TIME;
 
 /* 时间参数宏定义 */
@@ -38,8 +40,7 @@ static float base_delta_w = MAX_CHASSIS_VW_SPEED  / KEY_ACC_TIME;
 #define MICRO_DECAY           0.95f   // 微调模式衰减系数
 #define DEAD_ZONE             5.0f    // 速度死区(mm/s)
 
-pump_mode_e pump_mode = PUMP_INIT;
-
+extern Gripper_mode_e gripper_state;
 // 全局键盘控制对象定义
 keyboard_control_t keyboard = {
         .vx = 0, .vy = 0, .vw = 0,
@@ -130,7 +131,7 @@ void key_state_machine(key_status_t *key, uint8_t key_input)
 * @param remote 指向原始裁判系统数据的指针
 * @return 转换后的遥控器数据结构体
 */
-pc_control_t convert_remote_to_pc(const remote_control_t *remote)
+pc_control_t convert_remote_to_pc(const vt13_remote_parsed_data_t *remote)
 {
     pc_control_t pc;
 
@@ -149,9 +150,9 @@ pc_control_t convert_remote_to_pc(const remote_control_t *remote)
     pc.mouse.x = remote->mouse_x;
     pc.mouse.y = remote->mouse_y;
     pc.mouse.z = remote->mouse_z;
-    pc.mouse.l = (uint8_t)remote->left_button_down;
-    pc.mouse.r = (uint8_t)remote->right_button_down;
-    pc.keyboard.key_code = remote->keyboard_value;
+    pc.mouse.l = (uint8_t)remote->mouse_left;
+    pc.mouse.r = (uint8_t)remote->mouse_right;
+    pc.keyboard.key_code = remote->key;
 
     return pc;
 }
@@ -165,40 +166,38 @@ void PC_keyboard_mouse(const pc_control_t *pc_control)
 
     key_state_machine(&keyboard.x, pc_control->keyboard.bit.X);
     key_state_machine(&keyboard.z, pc_control->keyboard.bit.Z);
-//    pump_control(keyboard.x);
-    // X按键用于打开气泵
+    // X按键用于打开夹爪
     if(keyboard.x.state == KEY_PRESS_ONCE) {
-        pump_mode = PUMP_OPEN;
+        gripper_state = Gripper_OPEN;
     }
-    // Z按键用于关闭气泵
+    // Z按键用于关闭夹爪
     if(keyboard.z.state == KEY_PRESS_ONCE) {
-        pump_mode = PUMP_CLOSE;
+        gripper_state = Gripper_CLOSE;
     }
 
-
-    key_state_machine(&keyboard.g,pc_control->keyboard.bit.G);
-    if (keyboard.g.state == KEY_PRESS_ONCE)
-    {
-        cmd_chassis.last_mode= cmd_chassis.ctrl_mode;
-        cmd_chassis.ctrl_mode =CHASSIS_RELAX;
-    }
-
-    key_state_machine(&keyboard.f,pc_control->keyboard.bit.F);
-    if (keyboard.f.state == KEY_PRESS_ONCE)
-    {
-        cmd_chassis.last_mode= cmd_chassis.ctrl_mode;
-        cmd_chassis.ctrl_mode=CHASSIS_ENABLE;
-    }
+//    key_state_machine(&keyboard.g,pc_control->keyboard.bit.G);
+//    if (keyboard.g.state == KEY_PRESS_ONCE)
+//    {
+//        cmd_chassis.last_mode= cmd_chassis.ctrl_mode;
+//        cmd_chassis.ctrl_mode =CHASSIS_RELAX;
+//    }
+//
+//    key_state_machine(&keyboard.f,pc_control->keyboard.bit.F);
+//    if (keyboard.f.state == KEY_PRESS_ONCE)
+//    {
+//        cmd_chassis.last_mode= cmd_chassis.ctrl_mode;
+//        cmd_chassis.ctrl_mode=CHASSIS_ENABLE;
+//    }
 
     key_state_machine(&keyboard.b,pc_control->keyboard.bit.B);
-    if (keyboard.b.state == KEY_PRESS_ONCE)
+    if (keyboard.b.state == KEY_PRESS_LONG)
     {
         arm_cmd.last_mode = arm_cmd.ctrl_mode;
         arm_cmd.ctrl_mode = ARM_DISABLE;
     }
 
     key_state_machine(&keyboard.v,pc_control->keyboard.bit.V);
-    if (keyboard.v.state == KEY_PRESS_ONCE)
+    if (keyboard.v.state == KEY_PRESS_LONG)
     {
         arm_cmd.last_mode = arm_cmd.ctrl_mode;
         arm_cmd.ctrl_mode = ARM_ENABLE;
@@ -206,18 +205,18 @@ void PC_keyboard_mouse(const pc_control_t *pc_control)
 
     /* 模式优先级处理 */
     keyboard.move_mode = NORMAL_MODE;
-    keyboard.max_spd = 2500;
+    keyboard.max_spd = 0.8f;
     // 先处理CTRL
     key_state_machine(&keyboard.ctrl, pc_control->keyboard.bit.CTRL);
     if(keyboard.ctrl.state == KEY_PRESS_LONG) {
         keyboard.move_mode = SLOW_MODE;
-        keyboard.max_spd = 1500;
+        keyboard.max_spd = 0.4f;
     }
     // 后处理SHIFT（更高优先级）
     key_state_machine(&keyboard.shift, pc_control->keyboard.bit.SHIFT);
     if(keyboard.shift.state == KEY_PRESS_LONG) {
         keyboard.move_mode = FAST_MODE;
-        keyboard.max_spd = 3500;
+        keyboard.max_spd = 1.2f;
     }
 
     /* 计算动态参数 */
@@ -251,9 +250,9 @@ void PC_keyboard_mouse(const pc_control_t *pc_control)
 
     // 旋转控制（Q/E）
     if(pc_control->keyboard.bit.Q) {
-        keyboard.vw -= base_delta_w * 1.0f;  // 旋转灵敏度系数
+        keyboard.vw -= base_delta_w * 1.25f;  // 旋转灵敏度系数
     } else if(pc_control->keyboard.bit.E) {
-        keyboard.vw += base_delta_w * 1.0f;
+        keyboard.vw += base_delta_w * 1.25f;
     } else {
         keyboard.vw *= (1 - km_vw_ramp->calc(km_vw_ramp) * decay);
     }
@@ -266,7 +265,6 @@ void PC_keyboard_mouse(const pc_control_t *pc_control)
 
     VAL_LIMIT(keyboard.vx, -keyboard.max_spd, keyboard.max_spd);
     VAL_LIMIT(keyboard.vy, -keyboard.max_spd, keyboard.max_spd);
-    VAL_LIMIT(keyboard.vw, -keyboard.max_spd, keyboard.max_spd);
 
     VAL_LIMIT(keyboard.vx, -MAX_CHASSIS_VX_SPEED, MAX_CHASSIS_VX_SPEED);
     VAL_LIMIT(keyboard.vy, -MAX_CHASSIS_VY_SPEED, MAX_CHASSIS_VY_SPEED);

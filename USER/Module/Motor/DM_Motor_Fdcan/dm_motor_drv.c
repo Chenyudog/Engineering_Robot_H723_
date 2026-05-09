@@ -145,16 +145,28 @@ void dm_motor_clear_err(hcan_t* hcan, motor_t *motor)
 **/
 void dm_motor_fbdata(motor_t *motor, uint8_t *rx_data)  //:TODO
 {
-	//motor->para.id = (rx_data[0])&0x0F;   //关闭，避免错误修改
-	motor->para.state = (rx_data[0])>>4;
-	motor->para.p_int=(rx_data[1]<<8)|rx_data[2];
-	motor->para.v_int=(rx_data[3]<<4)|(rx_data[4]>>4);
-	motor->para.t_int=((rx_data[4]&0xF)<<8)|rx_data[5];
-    motor->para.pos = (uint_to_float(motor->para.p_int, -motor->tmp.PMAX, motor->tmp.PMAX, 16) *180.0f/3.1515926f );//rad转化为度，方便查看
-	motor->para.vel = uint_to_float(motor->para.v_int, -motor->tmp.VMAX, motor->tmp.VMAX, 12); // (-45.0,45.0)
-	motor->para.tor = uint_to_float(motor->para.t_int, -motor->tmp.TMAX, motor->tmp.TMAX, 12); // (-18.0,18.0)
-	motor->para.Tmos = (float)(rx_data[6]);
-	motor->para.Tcoil = (float)(rx_data[7]);
+    // 保存上一帧的旧位置值
+    motor->para.last_pos = motor->para.pos;
+
+	motor->para.id = (rx_data[0])&0x0F;   // 电机低4位：电机ID
+	motor->para.state = (rx_data[0])>>4;  // 电机高4位：电机状态
+	motor->para.p_int=(rx_data[1]<<8)|rx_data[2];  // 位置原始的整数值0 ~ 65535
+	motor->para.v_int=(rx_data[3]<<4)|(rx_data[4]>>4);  // 速度原始整数值0 ~ 4095
+	motor->para.t_int=((rx_data[4]&0xF)<<8)|rx_data[5];  // 力矩原始整数值0 ~ 4095
+//    motor->para.pos = (uint_to_float(motor->para.p_int, -motor->tmp.PMAX, motor->tmp.PMAX, 16) *180.0f/3.14159265358979323846f);//rad转化为度，方便查看
+    // 把无符号整数线性映射回有符号物理量
+    // 位置单位弧度rad
+    // PMAX参数决定系统对整数（离散值）的量化误差，转换成线性浮点数
+    // PMAX越大，则精度越差，每一个整数LBS都会引起更大的步进值，也就是误差，但同样的测量范围变大了
+    // PMAX越小，精度越高，测量范围变小
+    // PMAX值取决于编码端，STM32解码端必须和编码端保持一致
+    motor->para.pos = uint_to_float(motor->para.p_int, -motor->tmp.PMAX, motor->tmp.PMAX, 16);  //
+    // 速度单位rad/s
+    motor->para.vel = uint_to_float(motor->para.v_int, -motor->tmp.VMAX, motor->tmp.VMAX, 12); // (-45.0,45.0)
+	// 力矩单位为N。m
+    motor->para.tor = uint_to_float(motor->para.t_int, -motor->tmp.TMAX, motor->tmp.TMAX, 12); // (-18.0,18.0)
+	motor->para.Tmos = (float)(rx_data[6]);  // mos的温度值（摄氏度）
+	motor->para.Tcoil = (float)(rx_data[7]); // 温度
 }
 
 /**
@@ -312,17 +324,26 @@ void clear_err(hcan_t* hcan, uint16_t motor_id, uint16_t mode_id)
 * @details:    	通过CAN总线向电机发送MIT模式下的控制帧。
 ************************************************************************
 **/
+
+
 void mit_ctrl(hcan_t* hcan, motor_t *motor, uint16_t motor_id, float pos, float vel,float kp, float kd, float tor)
 {
 	uint8_t data[8];
 	uint16_t pos_tmp,vel_tmp,kp_tmp,kd_tmp,tor_tmp;
 	uint16_t id = motor_id + MIT_MODE;
 
+    pos = fmaxf(fminf(pos, motor->tmp.PMAX), -motor->tmp.PMAX);
+    vel = fmaxf(fminf(vel, motor->tmp.VMAX), -motor->tmp.VMAX);
+    kp = fmaxf(fminf(kp, KP_MAX), KP_MIN);
+    kd = fmaxf(fminf(kd, KD_MAX), KD_MIN);
+    tor = fmaxf(fminf(tor,motor->tmp.TMAX), -motor->tmp.TMAX);
+
 	pos_tmp = float_to_uint(pos, -motor->tmp.PMAX, motor->tmp.PMAX, 16);
 	vel_tmp = float_to_uint(vel, -motor->tmp.VMAX, motor->tmp.VMAX, 12);
 	tor_tmp = float_to_uint(tor, -motor->tmp.TMAX, motor->tmp.TMAX, 12);
 	kp_tmp  = float_to_uint(kp,  KP_MIN, KP_MAX, 12);
 	kd_tmp  = float_to_uint(kd,  KD_MIN, KD_MAX, 12);
+
 
 	data[0] = (pos_tmp >> 8);
 	data[1] = pos_tmp;
@@ -345,7 +366,7 @@ void mit_ctrl(hcan_t* hcan, motor_t *motor, uint16_t motor_id, float pos, float 
 * @details:    	通过CAN总线向电机发送位置速度控制命令
 ************************************************************************
 **/
-void pos_ctrl(hcan_t* hcan,uint16_t motor_id, float pos, float vel)
+void pos_ctrl(hcan_t* hcan, uint16_t motor_id, float pos, float vel)
 {
 	uint16_t id;
 	uint8_t *pbuf, *vbuf;

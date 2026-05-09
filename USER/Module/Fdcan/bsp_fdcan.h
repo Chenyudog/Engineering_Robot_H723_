@@ -23,9 +23,10 @@ void bsp_can_init(void);
 void can_filter_init(void);
 void bsp_fdcan_set_baud(hcan_t *hfdcan, uint8_t mode, uint8_t baud);
 uint8_t fdcanx_send_data(hcan_t *hfdcan, uint16_t id, uint8_t *data, uint32_t len);
-uint8_t fdcanx_receive(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf);
-void fdcan2_rx_callback(void);
-void fdcan3_rx_callback(void);
+uint8_t fdcanx_receive_FIFO0(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf);
+uint8_t fdcanx_receive_FIFO1(hcan_t *hfdcan, uint16_t *rec_id, uint8_t *buf);
+void fdcan2_process_callback(void);
+void fdcan3_process_callback(void);
 
 uint8_t CAN_send(FDCAN_HandleTypeDef *can, uint32_t send_id, uint8_t data[]);
 

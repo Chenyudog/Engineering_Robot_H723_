@@ -6,6 +6,8 @@
 #define CTRBOARD_H7_ALL_KEYBOARD_H
 #include "FreeRTOS.h"
 #include "referee_system.h"
+#include "vt13_vt03.h"
+
 /**
   * @brief     底盘运动速度快慢模式
   */
@@ -24,7 +26,7 @@ typedef enum
 {
     KEY_RELEASE = 0,    //没有按键按下
     KEY_WAIT_EFFECTIVE, //等待按键按下有效，防抖
-    KEY_PRESS_ONCE,     //按键按下一次的状态
+    KEY_PRESS_ONCE,     //按键按一次的状态
     KEY_PRESS_DOWN,     //按键已经被按下
     KEY_PRESS_LONG,     //按键长按状态
 } key_state_e;
@@ -60,10 +62,10 @@ typedef struct
     key_status_t shift; //SHIFT键按键状态
     key_status_t ctrl; //SHIFT键按键状态
     key_status_t v; //V键按键状态
-    key_status_t g; //V键按键状态
-    key_status_t x; //V键按键状态
-    key_status_t b; //V键按键状态
-    key_status_t z; //V键按键状态
+    key_status_t g; //G键按键状态
+    key_status_t x; //X键按键状态
+    key_status_t b; //B键按键状态
+    key_status_t z; //Z键按键状态
 
     key_status_t r; //V键按键状态
 
@@ -99,6 +101,7 @@ typedef struct
         int16_t z;   // 鼠标滚轮滚动,负值标识向后滚动
         uint8_t l;   // 鼠标左键，1为按下，0为松开
         uint8_t r;   // 鼠标右键，1为按下，0为松开
+        
     } mouse;
 
     /* PC 键盘按键数据 */
@@ -118,8 +121,8 @@ typedef struct
             uint16_t R     :1;
             uint16_t F     :1;
             uint16_t G     :1;
-            uint16_t Z     :1;
-            uint16_t X     :1;
+            uint16_t Z     :1;//控制夹爪
+            uint16_t X     :1;//控制夹爪
             uint16_t C     :1;
             uint16_t V     :1;
             uint16_t B     :1;
@@ -130,8 +133,7 @@ typedef struct
 
 void key_state_machine(key_status_t *key, uint8_t key_input);
 
-pc_control_t convert_remote_to_pc(const remote_control_t *remote);
-
+pc_control_t convert_remote_to_pc(const vt13_remote_parsed_data_t *remote);
 void PC_keyboard_mouse(const pc_control_t *pc_control);
 
 #endif //CTRBOARD_H7_ALL_KEYBOARD_H

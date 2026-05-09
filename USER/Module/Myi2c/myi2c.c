@@ -47,8 +47,9 @@ void IIC_Stop(void)
 uint8_t IIC_Wait_Ack(void)
 {
     uint8_t ucErrTime=0;
+    IIC_SDA(1);
     SDA_IN();
-    IIC_SDA(1);dwt_delay_us(1);
+    dwt_delay_us(1);    // 给足够的时间让电平稳定
     IIC_SCL(1);dwt_delay_us(1);
     while(READ_SDA)
     {

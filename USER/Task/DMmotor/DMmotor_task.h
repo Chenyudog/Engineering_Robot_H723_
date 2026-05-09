@@ -8,37 +8,37 @@
 #include "dm_motor_ctrl.h"
 #include "dm_motor_drv.h"
 #include "fdcan.h"
-
+#include "cmd_task.h"
+#include "rc_sbus.h"
 // 转换宏定义
 #define DEG_TO_RAD(x) ((x) * (M_PI / 180.0f)) // 度数转弧度
 #define RAD_TO_DEG(x) ((x) * (180.0f / M_PI)) // 弧度转度数
 #define NUM_INITIAL_READINGS 10 // 设置读取次数
 
-// 齿轮比定义
-#define GEAR_RATIO_6 3.24074f   // 6号电机转动 1圈，末端齿轮转动 3.24圈   // 可以修改来消除齿轮间隙误差
-#define GEAR_RATIO_5 1.55556f  // 5号电机转动 1圈，末端齿轮转动 1.5556圈
-#define GEAR_RATIO_2 2.4f                  // 2号电机转动 1圈，末端齿轮转动 2.4圈
-//#define GEAR_RATIO_diff 0.68f      // 6号电机补偿参数
+// 六号电机的角度限制
+#define MOTOR_6_MIN_LIMIT (-3.0f)
+#define MOTOR_6_MAX_LIMIT (3.0f)
+
 
 // 五号电机的角度限制
-#define MOTOR_5_MIN_LIMIT (-1.0f)  //  5号电机转动 1圈，末端齿轮转动 1.5556圈,限幅九十度
-#define MOTOR_5_MAX_LIMIT (1.0f)
+#define MOTOR_5_MIN_LIMIT (-1.5f)  //  5号电机转动 1圈，末端齿轮转动 1.5556圈,限幅九十度
+#define MOTOR_5_MAX_LIMIT (1.5f)
 
 // 四号电机的角度限制
-#define MOTOR_4_MIN_LIMIT (-3.0f)  // 最多3.14
-#define MOTOR_4_MAX_LIMIT 3.0f
+#define MOTOR_4_MIN_LIMIT (-3.14f)  // 最多3.14
+#define MOTOR_4_MAX_LIMIT 3.14f
 
 // 三号电机的角度限制
-#define MOTOR_3_MIN_LIMIT 0.0f
-#define MOTOR_3_MAX_LIMIT 2.4f    // 点位说明，2为即将越过点位，2.6朝天，3.1越出点位，4.2反向垂直，4.9垂直吸盘，5.2极限
+#define MOTOR_3_MIN_LIMIT 0.01f
+#define MOTOR_3_MAX_LIMIT 2.65f    // 点位说明，2为即将越过点位，2.6朝天，3.1越出点位，4.2反向垂直，4.9垂直吸盘，5.2极限
 
-// 计算二号电机的角度限制（通过齿轮比）
-#define MOTOR_2_MIN_LIMIT (-5.82f/GEAR_RATIO_2) // 先除齿轮比等接收编码器数据后再乘回来
+// 计算二号电机的角度限制
+#define MOTOR_2_MIN_LIMIT (-2.1f)
 #define MOTOR_2_MAX_LIMIT (-0.01f)
 
 // 计算一号电机的角度限制
-#define MOTOR_1_MIN_LIMIT (-3.05f)
-#define MOTOR_1_MAX_LIMIT 3.05f
+#define MOTOR_1_MIN_LIMIT (-2.4f)
+#define MOTOR_1_MAX_LIMIT 2.4f
 
 void arm_cmd_state_machine(void);
 void arm_cmd_enable(void);
@@ -67,6 +67,21 @@ struct arm_cmd_msg
     arm_mode_e last_mode;
 };
 
+/** 关节电机角度速度处理相关函数 **/
+#define POS_DEADBAND_RAD        0.0002f
+#define VEL_DEADBAND_RAD_S      0.009f
+#define MEDIAN_WIN_SIZE         5u  // 5窗口中值滤波
+
+typedef struct
+{
+    float buf[MEDIAN_WIN_SIZE];
+    uint8_t index;
+    uint8_t inited;
+} median_filter5_t;
+
+/** 关节电机角度速度处理相关函数 **/
+
+
 // 限幅函数
 float clamp_radians(float radians, float min_limit, float max_limit);
 
@@ -82,7 +97,7 @@ void DMcontrol_motor_5(hcan_t* hcan, DMmotorControl* motor_control, float target
 
 void DMcontrol_motor_6(hcan_t* hcan, DMmotorControl* motor_control, float target_angle);
 
-void DMcontrol_motor_7(hcan_t* hcan, DMmotorControl* motor_control, float target_angle);
+void DMcontrol_motor_7(hcan_t* hcan,Gripper_mode_e Gripper_ctrl);
 
 
 

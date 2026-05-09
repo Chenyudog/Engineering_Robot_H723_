@@ -13,7 +13,7 @@
 static referee_data_header_t referee_data_header;   //接收数据帧头结构体
 static referee_data_t referee_data;   //接收数据帧头结构体
 static unpack_data_t referee_unpack_obj;
-static float float_values[7] = {0}; // 存储转换后的7个float。改成队列传输
+static float float_values[6] = {0}; // 存储转换后的6个float。改成队列传输
 
 extern QueueHandle_t xKalmanOneQueue;
 
@@ -263,7 +263,7 @@ void referee_data_save(uint8_t* frame)
         case ARM_DATA_FROM_CONTROLLER_CMD_ID_2 :
             memcpy(&custom_robot_data, frame + index, sizeof(custom_robot_data_t));
             // 直接转存遥控数据
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < 6; i++) {
                 uint8_t *byte_ptr = &custom_robot_data.data[i * 4];
                 memcpy(&float_values[i], byte_ptr, sizeof(float));
             }
@@ -272,10 +272,10 @@ void referee_data_save(uint8_t* frame)
         case PLAYER_MINIMAP_CMD_ID :
             memcpy(&map_command, frame + index, sizeof(map_command_t));
             break;
-        case KEYBOARD_MOUSE_CMD_ID :
-            memcpy(&remote_control, frame + index, sizeof(remote_control_t));
-            memcpy(&(referee_fdb.remote_control), &remote_control, sizeof(remote_control_t));
-            break;
+//        case KEYBOARD_MOUSE_CMD_ID :
+//            memcpy(&remote_control, frame + index, sizeof(remote_control_t));
+//            memcpy(&(referee_fdb.remote_control), &remote_control, sizeof(remote_control_t));
+//            break;
         case RADAR_MINIMAP_CMD_ID :
             memcpy(&map_robot_data, frame + index, sizeof(map_robot_data_t));
             break;

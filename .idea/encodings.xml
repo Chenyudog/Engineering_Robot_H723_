@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/USER/Algorithm/ArmKinematic_6DOF_SDH/KinematicSDHdsp.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Algorithm/Crc/crc8_crc16.h" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Algorithm/KalmanFilterOne/KalmanFilterOne.h" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Algorithm/User_Lib/user_lib.c" charset="GBK" />
@@ -8,11 +9,15 @@
     <file url="file://$PROJECT_DIR$/USER/Module/Bmi088/BMI088driver.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/DM_Motor_Fdcan/dm_motor_ctrl.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/DM_Motor_Fdcan/dm_motor_drv.h" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/USER/Module/Motor/DM_Motor_Fdcan/dm_motor_ctrl.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/Referee_System/referee_system.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Module/can/bsp_fdcan.c" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/USER/Task/DMmotor/DMmotor_task.c" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/USER/Task/DMmotor/DMmotor_task.h" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Task/Ins/ins_task.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Task/Referee/referee_task.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Task/Transmission/transmission_task.c" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/USER/Task/USART/usart_task.c" charset="GBK" />
     <file url="file://$PROJECT_DIR$/USER/Task/ina226/Power_task.c" charset="GBK" />
     <file url="PROJECT" charset="GBK" />
   </component>

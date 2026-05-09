@@ -79,7 +79,7 @@ void TIM_Set_PWM(TIM_HandleTypeDef *tim_pwmHandle, uint8_t Channel, uint16_t val
 static uint32_t period = 250000;
 static uint32_t pulse = 0;
 static pid_obj_t *imu_temp_pid;
-static pid_config_t imu_temp_config = INIT_PID_CONFIG(200, 3, 0, 10, 500, PID_Integral_Limit);
+static pid_config_t imu_temp_config = INIT_PID_CONFIG(150, 3, 0, 10, 500, PID_Integral_Limit);
 
 /* ----------------------------- IMU_TEMPRETURE ----------------------------- */
 
@@ -138,7 +138,7 @@ void InsTask_Entry(void const * argument)
         ins.gyro[0] = BMI088.gyro[0];
         ins.gyro[1] = BMI088.gyro[1];
         ins.gyro[2] = BMI088.gyro[2];
-        IMU_Param_Correction(&imu_param, ins.gyro, ins.accel);
+        IMU_Param_Correction(&imu_param, ins.gyro, ins.accel);//修正安装偏差//目前无偏差
         // 核心函数,EKF更新四元数
         IMU_QuaternionEKF_Update(ins.gyro[X], ins.gyro[Y], ins.gyro[Z], ins.accel[X], ins.accel[Y], ins.accel[Z], ins_task_dt);
 
@@ -186,7 +186,7 @@ void InsTask_Entry(void const * argument)
         if ((count % 2) == 0)
         {
             // 1khz采样率，每2ms更新一次temperature
-            pulse = pid_calculate(imu_temp_pid, BMI088.temperature, IMU_TARGET_TEMP);
+            pulse = pid_calculate(imu_temp_pid, BMI088.temperature, BMI088.temp_when_cali);
             TIM_Set_PWM(&htim3, TIM_CHANNEL_4, pulse);
         }
 
@@ -241,10 +241,10 @@ static void ins_init(void)
     InitQuaternion(init_quaternion);
 
     //TODO：需要调节的BMI088参数
-    IMU_QuaternionEKF_Init(init_quaternion, 10, 0.001, 1000000, 1, 0);
+    IMU_QuaternionEKF_Init(init_quaternion, 10, 0.001f, 1000000, 1, 0);
 
     // noise of accel is relatively big and of high freq,thus lpf is used
-    ins.accel_lpf = 0.0085;
+    ins.accel_lpf = 0.0085f;
 }
 
 // 使用加速度计的数据初始化Roll和Pitch,而Yaw置0,这样可以避免在初始时候的姿态估计误差

@@ -876,13 +876,13 @@ typedef struct __attribute__((__packed__))
 */
 typedef struct __attribute__((__packed__))
 {
-    int16_t mouse_x;
-    int16_t mouse_y;
-    int16_t mouse_z;
+    int32_t mouse_x;
+    int32_t mouse_y;
+    int32_t mouse_z;
     int8_t left_button_down;
     int8_t right_button_down;
-    uint16_t keyboard_value;
-    uint16_t reserved;
+    uint32_t keyboard_value;
+    int8_t middle_button_down;
 } remote_control_t;
 
 /**

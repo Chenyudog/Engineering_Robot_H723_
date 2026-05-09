@@ -8,8 +8,8 @@
 #include "cmsis_os.h"
 #include "string.h"
 
-#define MAX_TOPIC_COUNT 20    // 最多支持的话题数量
-#define MSG_NAME_MAX    12    // 话题名称最大长度
+#define MAX_TOPIC_COUNT 25    // 最多支持的话题数量
+#define MSG_NAME_MAX    20    // 话题名称最大长度
 
 /**
  * @brief 话题类型

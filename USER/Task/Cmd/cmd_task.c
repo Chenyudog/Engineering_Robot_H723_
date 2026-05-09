@@ -30,19 +30,22 @@
 #include "ins_task.h"
 #include "msg_freertos.h"
 #include "chassis_task.h"
+#include "tim.h"
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-//static struct chassis_cmd_msg chassis_cmd;
-//static struct chassis_fdb_msg chassis_fdb;
-//static struct trans_fdb_msg trans_fdb;
-//static struct ins_msg ins_data;
+
 static struct cmd_chassis_msg pc_cmd_data;
-//static publisher_t *pub_chassis;
-static subscriber_t *pc_cmd;
-//
-//static void chassis_pub_init(void);
+static struct pc_cmd_voice_control_msg receive_pc_cmd_voice_control_data;
+static publisher_t *chassis_cmd_pub;
+static subscriber_t *pc_cmd_sub;
+static publisher_t *dm_arm_ctrl_mode_pub;
+static subscriber_t *pc_cmd_voice_control_subscriber;
+static void cmd_pub_init(void);
 static void cmd_sub_init(void);
-//static void cmd_pub_push(void);
+static void cmd_pub_push(void);
 static void cmd_sub_pull(void);
+void store1_ctrl(void);
+void store2_ctrl(void);
+void store_ctrl(void);
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 /* -------------------------------- 调试监测线程相关 --------------------------------- */
 static uint32_t cmd_task_dwt = 0;   // 毫秒监测
@@ -54,24 +57,21 @@ static float cmd_task_start_dt = 0; // 监测线程开始时间
 
 extern sbus_data_t sbus_data_fdb;
 extern keyboard_control_t keyboard;
-
 extern vt13_remote_parsed_data_t vt13_remote_parsed_data_fdb;
-
 static pc_control_t pc_data;
+static Arm_mode_e dm_arm_ctrl_mode;
 
 extern struct referee_fdb_msg referee_fdb;
-
-extern struct cmd_chassis_msg cmd_chassis;
-
-
+struct cmd_chassis_msg cmd_chassis;
+extern Gripper_mode_e gripper_state ;
+static Store_mode_e store_mode1 = Store_NO1;
+static Store_mode_e store_mode2 = Store_NO1;
 /* 外部变量声明 */
 /*键盘加速度的斜坡*/
 ramp_obj_t *km_vx_ramp = NULL;;//x轴控制斜坡
 ramp_obj_t *km_vy_ramp = NULL;//y周控制斜坡
 ramp_obj_t *km_vw_ramp = NULL;//y周控制斜坡
 /* 气泵控制状态 */
-static uint8_t pump_state = 0;
-
 
 /* -------------------------------- 线程入口 ------------------------------- */
 void CmdTask_Entry(void const * argument)
@@ -84,18 +84,20 @@ void CmdTask_Entry(void const * argument)
     sbus_data_fdb.sw4 = RC_UP;
 
     vt13_remote_data_init();
-
+    store_mode1 = Store_NO1;//初始化储存罐
+    store_mode2 = Store_NO1;
     km_vx_ramp = ramp_register(0, 200); //2500000
     km_vy_ramp = ramp_register(0, 200);  // 0 -2的累加次数
     km_vw_ramp = ramp_register(0, 200);
+
     /* 获取原始键盘数据 */
     memset(&pc_data, 0, sizeof(pc_control_t));
     memset(&keyboard, 0, sizeof(keyboard_control_t));
 /* -------------------------------- 外设初始化段落 ------------------------------- */
 
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
-//    chassis_pub_init();
-      cmd_sub_init();
+    cmd_pub_init();
+    cmd_sub_init();
 /* -------------------------------- 线程间Topics初始化 ------------------------------- */
 /* -------------------------------- 调试监测线程调度 --------------------------------- */
     cmd_task_dt = dwt_get_delta(&cmd_task_dwt);
@@ -113,16 +115,16 @@ void CmdTask_Entry(void const * argument)
 /* -------------------------------- 线程订阅Topics信息 ------------------------------- */
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
-        pc_data = convert_remote_to_pc(&referee_fdb.remote_control);
+        pc_data = convert_remote_to_pc(&vt13_remote_parsed_data_fdb);
         PC_keyboard_mouse(&pc_data);
-        chassis_cmd_state_machine();
-        //pum_ctrl();
-        arm_cmd_state_machine(); // 机械臂状态机
         remote_to_cmd_sbus();
+        arm_cmd_state_machine(); // 机械臂状态机
+        chassis_cmd_state_machine();
+        store_ctrl();//存储罐控制
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
 
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
-//        chassis_pub_push();
+        cmd_pub_push();
 /* -------------------------------- 线程发布Topics信息 ------------------------------- */
         vTaskDelay(1);
     }
@@ -130,93 +132,97 @@ void CmdTask_Entry(void const * argument)
 /* -------------------------------- 线程结束 ------------------------------- */
 
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
-///**
-// * @brief chassis 线程中所有发布者初始化
-// */
-//static void chassis_pub_init(void)
-//{
-//    pub_chassis = pub_register("chassis_fdb",sizeof(struct chassis_fdb_msg));
-//}
-//
+
+
 /**
- * @brief chassis 线程中所有订阅者初始化
+ * @brief cmd_task 线程中所有发布者初始化
+ */
+static void cmd_pub_init(void)
+{
+    chassis_cmd_pub = pub_register("chassis_cmd_pub", sizeof(struct cmd_chassis_msg));
+    dm_arm_ctrl_mode_pub = pub_register("dm_arm_ctrl_mode", sizeof(Arm_mode_e));
+}
+
+
+/**
+ * @brief cmd_task  线程中所有订阅者初始化
  */
 static void cmd_sub_init(void)
 {
-    pc_cmd = sub_register("pc_cmd", sizeof(struct cmd_chassis_msg));
+    pc_cmd_sub = sub_register("pc_cmd_chassis", sizeof(struct cmd_chassis_msg));
+    pc_cmd_voice_control_subscriber = sub_register("voice_control_pub",sizeof(struct pc_cmd_voice_control_msg));
 }
-//
-///**
-// * @brief chassis 线程中所有发布者推送更新话题
-// */
-//static void chassis_pub_push(void)
-//{
-//    pub_push_msg(pub_chassis,&chassis_fdb);
-//}
+
 /**
- * @brief chassis 线程中所有订阅者获取更新话题
+ * @brief cmd_task  线程中所有订阅者获取更新话题
  */
 static void cmd_sub_pull(void)
 {
-    sub_get_msg(pc_cmd, &pc_cmd_data);
+    sub_get_msg(pc_cmd_sub, &pc_cmd_data);
+    sub_get_msg(pc_cmd_voice_control_subscriber, &receive_pc_cmd_voice_control_data);
 }
+
+/**
+ * @brief cmd_task  线程中所有订阅者推送话题
+ */
+static void cmd_pub_push(void)
+{
+    pub_push_msg(chassis_cmd_pub,&cmd_chassis);
+    pub_push_msg(dm_arm_ctrl_mode_pub, &dm_arm_ctrl_mode);
+}
+
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static uint8_t fn_1_last_state = 0;  // 保存上次的状态,初始为未按下
 static uint8_t fn_2_last_state = 0;  // 保存上次的状态,初始为未按下
-extern pump_mode_e pump_mode;
 extern struct arm_cmd_msg arm_cmd;
 /* ------------------------------ 将遥控器数据转换为控制指令 ----------------------------- */
 void remote_to_cmd_sbus(void) {
+
     cmd_chassis.last_mode = cmd_chassis.ctrl_mode;
-
-
+    //导航控制、福斯控制和VT13控制,以加法手段结合
     if (vt13_remote_parsed_data_fdb.online) {
         // 新遥控器（vt13）通道映射
         cmd_chassis.vx = (vt13_remote_parsed_data_fdb.ch[1] * CHASSIS_VT13_RC_MOVE_RATIO_X / VT13_RC_MAX_VALUE
-                          + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y);
+                          + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y + pc_cmd_data.vx+receive_pc_cmd_voice_control_data.vx);
         cmd_chassis.vy = (vt13_remote_parsed_data_fdb.ch[3] * CHASSIS_VT13_RC_MOVE_RATIO_Y / VT13_RC_MAX_VALUE
-                          + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X);
+                          + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X + pc_cmd_data.vy+receive_pc_cmd_voice_control_data.vy);
         cmd_chassis.vw = (vt13_remote_parsed_data_fdb.ch[0] * CHASSIS_VT13_RC_MOVE_RATIO_W / VT13_RC_MAX_VALUE
-                          + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
+                          + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw+receive_pc_cmd_voice_control_data.vw);
 
-        if (vt13_remote_parsed_data_fdb.mode_sw == 0) {  // 假设mode_sw=0为关闭
-            pump_mode =PUMP_OPEN ;
-        } else if (vt13_remote_parsed_data_fdb.mode_sw == 1) {  // mode_sw=1为打开
-            pump_mode = PUMP_CLOSE;
+        if (vt13_remote_parsed_data_fdb.mode_sw == 0)//夹爪控制模式
+        {
+            gripper_state =Gripper_OPEN ;
         }
-
-        if(vt13_remote_parsed_data_fdb.fn_1 && !fn_1_last_state){
-            cmd_chassis.ctrl_mode =! cmd_chassis.ctrl_mode;
+        else if(vt13_remote_parsed_data_fdb.mode_sw == 2)
+        {
+            gripper_state =Gripper_CLOSE;
+        }
+        //底盘失使能
+        if(vt13_remote_parsed_data_fdb.fn_1 && !fn_1_last_state)
+        {
+            dm_arm_ctrl_mode = !dm_arm_ctrl_mode;
         }
         fn_1_last_state = vt13_remote_parsed_data_fdb.fn_1;
-
-        if(vt13_remote_parsed_data_fdb.fn_2 && !fn_2_last_state ){
+        //机械臂失使能
+        if(vt13_remote_parsed_data_fdb.fn_2 && !fn_2_last_state )
+        {
             arm_cmd.ctrl_mode = !arm_cmd.ctrl_mode;
         }
         fn_2_last_state = vt13_remote_parsed_data_fdb.fn_2;
     } else {
         // 原SBUS遥控器数据（保持原有逻辑）
-        if(sbus_data_fdb.sw4 == RC_DN)
-        {
-            cmd_chassis.vx = pc_cmd_data.vx;
-            cmd_chassis.vy = pc_cmd_data.vy;
-            cmd_chassis.vw = pc_cmd_data.vw;
-        }
-        else
-        {
             cmd_chassis.vx = (sbus_data_fdb.ch2 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE
-                              + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y);
+                              + keyboard.vx * CHASSIS_PC_MOVE_RATIO_X + pc_cmd_data.vx+receive_pc_cmd_voice_control_data.vx);
             cmd_chassis.vy = (sbus_data_fdb.ch4 * CHASSIS_RC_MOVE_RATIO_Y / RC_MAX_VALUE
-                              + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X);
+                              + keyboard.vy * CHASSIS_PC_MOVE_RATIO_Y + pc_cmd_data.vy+receive_pc_cmd_voice_control_data.vy);
             cmd_chassis.vw = (sbus_data_fdb.ch1 * CHASSIS_RC_MOVE_RATIO_W / RC_MAX_VALUE
-                              + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
-        }
+                              + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw+receive_pc_cmd_voice_control_data.vw);
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
-        if (sbus_data_fdb.sw3 == RC_UP) {
-            pump_mode = PUMP_CLOSE;
+        if (sbus_data_fdb.sw3 == RC_MI) {
+            gripper_state = Gripper_OPEN;
         } else if (sbus_data_fdb.sw3 == RC_DN) {
-            pump_mode = PUMP_OPEN;
+            gripper_state = Gripper_CLOSE;
         }
 
         if (sbus_data_fdb.sw2 == RC_UP) {
@@ -233,54 +239,41 @@ void remote_to_cmd_sbus(void) {
     }
 }
 
-/**
- * @brief 将遥控数据转换为控制指令（包含键盘与福斯遥控器数据）
- */
-//void remote_to_cmd_sbus(void)
-//{
-//    cmd_chassis.last_mode = cmd_chassis.ctrl_mode;
-//
-//    /*底盘命令*/
-////    chassis_cmd.vx = tmp_data.ch4 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE * MAX_CHASSIS_VX_SPEED + keyboard.vx * CHASSIS_PC_MOVE_RATIO_X;
-////    chassis_cmd.vy = tmp_data.ch2 * CHASSIS_RC_MOVE_RATIO_Y / RC_MAX_VALUE * MAX_CHASSIS_VY_SPEED + keyboard.vy * CHASSIS_PC_MOVE_RATIO_Y;
-////    chassis_cmd.vw = tmp_data.ch1 * CHASSIS_RC_MOVE_RATIO_R / RC_MAX_VALUE * MAX_CHASSIS_VR_SPEED + keyboard.vw * 1.0f;
-//
-//    // TODO:右手系，逆时针为正。遥控器部分为美国手(左倾斜为正，上抬头为正，左转为正）
-//    cmd_chassis.vx = (sbus_data_fdb.ch2 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE  + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y );
-//    cmd_chassis.vy = (sbus_data_fdb.ch4 * CHASSIS_RC_MOVE_RATIO_Y / RC_MAX_VALUE  + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X );
-//    cmd_chassis.vw = (sbus_data_fdb.ch1 * CHASSIS_RC_MOVE_RATIO_W / RC_MAX_VALUE  + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W );
-//    //chassis_cmd.vx = text_vx;
-//
-//    if (sbus_data_fdb.sw3 == RC_MI)
-//    {
-//        pump_mode = PUMP_CLOSE;
-//    }
-//    else if (sbus_data_fdb.sw3 == RC_DN)
-//    {
-//        pump_mode = PUMP_OPEN;
-//    }
-//}
 
-//void pum_ctrl(void)
-//{
-//    if (pump_mode == PUMP_OPEN)
-//    {
-//        HAL_GPIO_WritePin(PUMP1_GPIO_Port, PUMP1_Pin, GPIO_PIN_SET);
-//    }
-//    else if (pump_mode == PUMP_CLOSE)
-//    {
-//        HAL_GPIO_WritePin(PUMP1_GPIO_Port, PUMP1_Pin, GPIO_PIN_RESET);
-//    }
-//}
-
-void pum_ctrl(void)
+void store1_ctrl(void)
 {
-    if (pump_mode == PUMP_OPEN)
+    if (store_mode1 == Store_NO1 )
     {
-        HAL_GPIO_WritePin(PUMP2_2_GPIO_Port, PUMP2_2_Pin, GPIO_PIN_SET);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500);//一号柱在前
     }
-    else if (pump_mode == PUMP_CLOSE)
+    else if (store_mode1 == Store_NO2 )
     {
-        HAL_GPIO_WritePin(PUMP2_2_GPIO_Port, PUMP2_2_Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 612);//一号柱在前
     }
+    else if (store_mode1 == Store_NO3 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2388);//一号柱在前
+    }
+}
+
+void store2_ctrl(void)
+{
+    if (store_mode2 == Store_NO1 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 1500);//一号柱在前
+    }
+    else if (store_mode2 == Store_NO2 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 612);//一号柱在前
+    }
+    else if (store_mode2 == Store_NO3 )
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 2388);//一号柱在前
+    }
+}
+
+void store_ctrl(void)
+{
+    store1_ctrl();
+    store2_ctrl();
 }

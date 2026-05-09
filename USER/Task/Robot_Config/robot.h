@@ -63,9 +63,9 @@ extern FDCAN_HandleTypeDef hfdcan3;
 
 /* ---------------------------------- VT13_VT03遥控器相关 --------------------------------- */
 /* 鼠标键盘模式下的底盘最大速度比例 */  //TODO：取决于键盘手感
-#define CHASSIS_PC_MOVE_RATIO_X 0.5f
+#define CHASSIS_PC_MOVE_RATIO_X 1.0f
 /* 底盘平移速度比例(m/s) */
-#define CHASSIS_PC_MOVE_RATIO_Y 0.5f
+#define CHASSIS_PC_MOVE_RATIO_Y 1.0f
 /* 底盘旋转速度比例(rad/s) */
 #define CHASSIS_PC_MOVE_RATIO_W 1.0f
 
@@ -89,8 +89,8 @@ extern FDCAN_HandleTypeDef hfdcan3;
 
 /******** 底盘最大速度设置 *******/
 /* 底盘移动最大速度，单位是m/s */
-#define MAX_CHASSIS_VX_SPEED 2
-#define MAX_CHASSIS_VY_SPEED 2
+#define MAX_CHASSIS_VX_SPEED 1.2
+#define MAX_CHASSIS_VY_SPEED 1.2
 
 #define MAX_CHASSIS_VX_SPEED_HIGH 11
 #define MAX_CHASSIS_VY_SPEED_HIGH 11
@@ -99,7 +99,7 @@ extern FDCAN_HandleTypeDef hfdcan3;
 #define MAX_CHASSIS_VY_SPEED_LOW 5
 
 /* 底盘旋转最大速度，单位是rad/s */
-#define MAX_CHASSIS_VW_SPEED 5.0f
+#define MAX_CHASSIS_VW_SPEED 2.5f
 
 /* --------------------------------- 底盘单个电机PID参数 -------------------------------- */
 /* 电机速度环（实际是C620的电流环）（电流值范围：-16380~0~16380）（-20A~0A~20A） */
