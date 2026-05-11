@@ -282,7 +282,6 @@ void InsDataPack()//目前上位机用不到下位机陀螺仪
 
     // 发送数据，检查返回值确保发送成功
     if (CDC_Transmit_HS(usb_txbuffer, INS_BUF_LEN) != USBD_OK) {
-
     }
 }
 
