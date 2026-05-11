@@ -107,6 +107,9 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Algorithm/Ramp
         USER/Algorithm/User_Lib
         USER/Algorithm/rls
+        USER/Algorithm/ArmMotionActuator
+        USER/Algorithm/ArmKinematic_6DOF_SDH
+        USER/Algorithm/ArmTrajectoryPlanning
 
         USER/Module/Board_Device/Board_Bmi088
         USER/Module/Board_Device/Board_Passive_Buzzer
@@ -158,6 +161,8 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Algorithm/Ramp/*.*"
         "USER/Algorithm/User_Lib/*.*"
         "USER/Algorithm/rls/*.*"
+        "USER/Algorithm/ArmMotionActuator/*.*"
+        "USER/Algorithm/ArmTrajectoryPlanning/*.*"
 
         "USER/Module/Board_Device/Board_Bmi088/*.*"
         "USER/Module/Board_Device/Board_Passive_Buzzer/*.*"
