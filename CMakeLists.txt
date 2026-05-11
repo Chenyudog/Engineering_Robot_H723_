@@ -84,7 +84,7 @@ elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel")
     add_compile_options(-Os)
 else ()
     message(STATUS "Minimal optimization, debug info included")
-    add_compile_options(-O0 -g3 -gdwarf-4)
+    add_compile_options(-Og -g)
 endif ()
 
 # 包含目录（根据实际路径调整）
@@ -96,11 +96,6 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
 
         Middlewares/ST/ARM/DSP/Inc # 矩阵运算库
 
-        #USER/Algorithm/ArmKinematic_6DOF_MDH
-        USER/Algorithm/ArmKinematic_6DOF_SDH
-        USER/Algorithm/ArmMotionActuator
-        #USER/Algorithm/ArmTrajectoryGenerator
-        USER/Algorithm/ArmTrajectoryPlanning
         USER/Algorithm/Crc8_Crc16
         USER/Algorithm/Filter
         USER/Algorithm/KalmanFilter
@@ -112,7 +107,6 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Algorithm/Ramp
         USER/Algorithm/User_Lib
         USER/Algorithm/rls
-
 
         USER/Module/Board_Device/Board_Bmi088
         USER/Module/Board_Device/Board_Passive_Buzzer
@@ -133,7 +127,6 @@ include_directories(Core/Inc Drivers/STM32H7xx_HAL_Driver/Inc Drivers/STM32H7xx_
         USER/Module/rtt_log/SEGGER/Config
         USER/Module/rtt_log/SEGGER/RTT
         USER/Module/Myi2c
-        USER/Module/W25Q64
 
 
         USER/Task/Algorithm
@@ -154,11 +147,6 @@ add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32H723xx -DUSE_PWR_LDO_SUPPLY)
 
 # 源文件
 file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE/*.*"
-        #"USER/Algorithm/ArmKinematic_6DOF_MDH/*.*"
-        "USER/Algorithm/ArmKinematic_6DOF_SDH/*.*"
-        "USER/Algorithm/ArmMotionActuator/*.*"
-        #"USER/Algorithm/ArmTrajectoryGenerator/*.*"
-        "USER/Algorithm/ArmTrajectoryPlanning/*.*"
         "USER/Algorithm/Crc8_Crc16/*.*"
         "USER/Algorithm/Filter/*.*"
         "USER/Algorithm/KalmanFilter/*.*"
@@ -170,7 +158,6 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Algorithm/Ramp/*.*"
         "USER/Algorithm/User_Lib/*.*"
         "USER/Algorithm/rls/*.*"
-
 
         "USER/Module/Board_Device/Board_Bmi088/*.*"
         "USER/Module/Board_Device/Board_Passive_Buzzer/*.*"
@@ -191,7 +178,6 @@ file(GLOB_RECURSE SOURCES "Core/*.*" "Middlewares/*.*" "Drivers/*.*" "USB_DEVICE
         "USER/Module/rtt_log/SEGGER/Config/*.*"
         "USER/Module/rtt_log/SEGGER/RTT/*.*"
         "USER/Module/Myi2c/*.*"
-        "USER/Module/W25Q64/*.*"
 
         "USER/Task/Algorithm/*.*"
         "USER/Task/Chassis/*.*"
@@ -213,8 +199,6 @@ set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32H723VGTX_FLASH.ld)
 
 # 链接选项
 add_link_options(-Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map)
-# 保留 uxTopUsedPriority 符号供 OpenOCD FreeRTOS 感知使用
-add_link_options(-Wl,--undefined=uxTopUsedPriority)
 add_link_options(-mcpu=cortex-m7 -mthumb -mthumb-interwork)
 add_link_options(-T ${LINKER_SCRIPT})
 
