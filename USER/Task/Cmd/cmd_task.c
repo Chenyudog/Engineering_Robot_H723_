@@ -34,11 +34,13 @@
 /* -------------------------------- 线程间通讯Topics相关 ------------------------------- */
 
 static struct cmd_chassis_msg pc_cmd_data;
+static uint16_t receive_nuc_keyboard_data;
 static struct pc_cmd_voice_control_msg receive_pc_cmd_voice_control_data;
 static publisher_t *chassis_cmd_pub;
 static subscriber_t *pc_cmd_sub;
 static publisher_t *dm_arm_ctrl_mode_pub;
 static subscriber_t *pc_cmd_voice_control_subscriber;
+static subscriber_t *nuc_keyboard_subscriber;
 static void cmd_pub_init(void);
 static void cmd_sub_init(void);
 static void cmd_pub_push(void);
@@ -57,8 +59,10 @@ static float cmd_task_start_dt = 0; // 监测线程开始时间
 
 extern sbus_data_t sbus_data_fdb;
 extern keyboard_control_t keyboard;
+extern keyboard_control_t nuc_keyboard;
 extern vt13_remote_parsed_data_t vt13_remote_parsed_data_fdb;
 static pc_control_t pc_data;
+static pc_control_t nuc_data;
 static Arm_mode_e dm_arm_ctrl_mode;
 
 extern struct referee_fdb_msg referee_fdb;
@@ -71,6 +75,11 @@ static Store_mode_e store_mode2 = Store_NO1;
 ramp_obj_t *km_vx_ramp = NULL;;//x轴控制斜坡
 ramp_obj_t *km_vy_ramp = NULL;//y周控制斜坡
 ramp_obj_t *km_vw_ramp = NULL;//y周控制斜坡
+
+ramp_obj_t *nuc_km_vx_ramp = NULL;;//x轴控制斜坡
+ramp_obj_t *nuc_km_vy_ramp = NULL;//y周控制斜坡
+ramp_obj_t *nuc_km_vw_ramp = NULL;//y周控制斜坡
+
 /* 气泵控制状态 */
 
 /* -------------------------------- 线程入口 ------------------------------- */
@@ -89,6 +98,10 @@ void CmdTask_Entry(void const * argument)
     km_vx_ramp = ramp_register(0, 200); //2500000
     km_vy_ramp = ramp_register(0, 200);  // 0 -2的累加次数
     km_vw_ramp = ramp_register(0, 200);
+
+    nuc_km_vx_ramp = ramp_register(0, 200); //2500000
+    nuc_km_vy_ramp = ramp_register(0, 200);  // 0 -2的累加次数
+    nuc_km_vw_ramp = ramp_register(0, 200);
 
     /* 获取原始键盘数据 */
     memset(&pc_data, 0, sizeof(pc_control_t));
@@ -116,7 +129,9 @@ void CmdTask_Entry(void const * argument)
 
 /* -------------------------------- 线程代码编写段落 ------------------------------- */
         pc_data = convert_remote_to_pc(&vt13_remote_parsed_data_fdb);
+        nuc_data.keyboard.key_code = receive_nuc_keyboard_data;//只解析16位键盘数据
         PC_keyboard_mouse(&pc_data);
+        NUC_keyboard_mouse(&nuc_data);
         remote_to_cmd_sbus();
         arm_cmd_state_machine(); // 机械臂状态机
         chassis_cmd_state_machine();
@@ -151,6 +166,7 @@ static void cmd_sub_init(void)
 {
     pc_cmd_sub = sub_register("pc_cmd_chassis", sizeof(struct cmd_chassis_msg));
     pc_cmd_voice_control_subscriber = sub_register("voice_control_pub",sizeof(struct pc_cmd_voice_control_msg));
+    nuc_keyboard_subscriber = sub_register("nuc_keyboard_data",sizeof(uint16_t));
 }
 
 /**
@@ -160,6 +176,7 @@ static void cmd_sub_pull(void)
 {
     sub_get_msg(pc_cmd_sub, &pc_cmd_data);
     sub_get_msg(pc_cmd_voice_control_subscriber, &receive_pc_cmd_voice_control_data);
+    sub_get_msg(nuc_keyboard_subscriber, &receive_nuc_keyboard_data);
 }
 
 /**
@@ -184,11 +201,11 @@ void remote_to_cmd_sbus(void) {
     if (vt13_remote_parsed_data_fdb.online) {
         // 新遥控器（vt13）通道映射
         cmd_chassis.vx = (vt13_remote_parsed_data_fdb.ch[1] * CHASSIS_VT13_RC_MOVE_RATIO_X / VT13_RC_MAX_VALUE
-                          + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y + pc_cmd_data.vx+receive_pc_cmd_voice_control_data.vx);
+                          + keyboard.vx * CHASSIS_PC_MOVE_RATIO_Y + pc_cmd_data.vx+receive_pc_cmd_voice_control_data.vx + nuc_keyboard.vx * CHASSIS_PC_MOVE_RATIO_X);
         cmd_chassis.vy = (vt13_remote_parsed_data_fdb.ch[3] * CHASSIS_VT13_RC_MOVE_RATIO_Y / VT13_RC_MAX_VALUE
-                          + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X + pc_cmd_data.vy+receive_pc_cmd_voice_control_data.vy);
+                          + keyboard.vy * CHASSIS_PC_MOVE_RATIO_X + pc_cmd_data.vy+receive_pc_cmd_voice_control_data.vy + nuc_keyboard.vy * CHASSIS_PC_MOVE_RATIO_Y);
         cmd_chassis.vw = (vt13_remote_parsed_data_fdb.ch[0] * CHASSIS_VT13_RC_MOVE_RATIO_W / VT13_RC_MAX_VALUE
-                          + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw+receive_pc_cmd_voice_control_data.vw);
+                          + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw+receive_pc_cmd_voice_control_data.vw + nuc_keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
 
         if (vt13_remote_parsed_data_fdb.mode_sw == 0)//夹爪控制模式
         {
@@ -213,11 +230,11 @@ void remote_to_cmd_sbus(void) {
     } else {
         // 原SBUS遥控器数据（保持原有逻辑）
             cmd_chassis.vx = (sbus_data_fdb.ch2 * CHASSIS_RC_MOVE_RATIO_X / RC_MAX_VALUE
-                              + keyboard.vx * CHASSIS_PC_MOVE_RATIO_X + pc_cmd_data.vx+receive_pc_cmd_voice_control_data.vx);
+                              + keyboard.vx * CHASSIS_PC_MOVE_RATIO_X + pc_cmd_data.vx+receive_pc_cmd_voice_control_data.vx + nuc_keyboard.vx * CHASSIS_PC_MOVE_RATIO_X);
             cmd_chassis.vy = (sbus_data_fdb.ch4 * CHASSIS_RC_MOVE_RATIO_Y / RC_MAX_VALUE
-                              + keyboard.vy * CHASSIS_PC_MOVE_RATIO_Y + pc_cmd_data.vy+receive_pc_cmd_voice_control_data.vy);
+                              + keyboard.vy * CHASSIS_PC_MOVE_RATIO_Y + pc_cmd_data.vy+receive_pc_cmd_voice_control_data.vy + nuc_keyboard.vy * CHASSIS_PC_MOVE_RATIO_Y);
             cmd_chassis.vw = (sbus_data_fdb.ch1 * CHASSIS_RC_MOVE_RATIO_W / RC_MAX_VALUE
-                              + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw+receive_pc_cmd_voice_control_data.vw);
+                              + keyboard.vw * CHASSIS_PC_MOVE_RATIO_W + pc_cmd_data.vw+receive_pc_cmd_voice_control_data.vw + nuc_keyboard.vw * CHASSIS_PC_MOVE_RATIO_W);
         // 原SBUS遥控器泵模式控制（保持原有逻辑）
         if (sbus_data_fdb.sw3 == RC_MI) {
             gripper_state = Gripper_OPEN;

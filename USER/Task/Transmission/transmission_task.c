@@ -48,9 +48,11 @@ static struct pc_cmd_arm_msg receive_pc_cmd_arm_msg_data;
 static struct pc_cmd_voice_control_msg receive_pc_cmd_voice_control_data;
 static dm_arm_feedback_msg_t transmission_subscribe_arm_feedback_data;
 
+static uint16_t receive_pc_keyboard_data;
 static publisher_t *pc_cmd_arm_topic_publish;
 static publisher_t *pc_cmd_chassis_topic_publish;
 static publisher_t *pc_cmd_voice_control_publisher;
+static publisher_t *nuc_keyboard_publisher;
 static subscriber_t *subscribe_ins_topic;
 static subscriber_t *subscribe_cmd_chassis_topic;
 static subscriber_t *subscribe_arm_feedback_topic;
@@ -146,6 +148,7 @@ static void transmission_topic_pub_init(void)
     pc_cmd_chassis_topic_publish = pub_register("pc_cmd_chassis",sizeof(struct cmd_chassis_msg));
     pc_cmd_arm_topic_publish = pub_register("pc_cmd_arm_pub",sizeof(struct pc_cmd_arm_msg));
     pc_cmd_voice_control_publisher =pub_register("voice_control_pub",sizeof(struct pc_cmd_voice_control_msg));
+    nuc_keyboard_publisher =pub_register("nuc_keyboard_data",sizeof(uint16_t));
 }
 
 static void transmission_topic_sub_init(void)
@@ -169,6 +172,12 @@ void uppack_pc_cmd_chassis_data(void)
                                              (Rx_data[25] << 8) |  // byte2占 23-16位
                                              (Rx_data[26] << 16)  |  // byte1占 15-8位
                                              (Rx_data[27] << 24)) / 10000.0f;    // byte0占 7-0位
+}
+
+void uppack_keyboard_data(void)
+{
+    receive_pc_keyboard_data = (uint16_t)((Rx_data[4] << 0) | (Rx_data[5] << 8) );  // byte3占 31-24位
+
 }
 
 void uppack_pc_cmd_arm_data(void)
@@ -224,6 +233,7 @@ static void transmission_topic_pub_push(void)
     pub_push_msg(pc_cmd_chassis_topic_publish,&receive_pc_cmd_chassis_data);
     pub_push_msg(pc_cmd_arm_topic_publish,&receive_pc_cmd_arm_msg_data);
     pub_push_msg(pc_cmd_voice_control_publisher,&receive_pc_cmd_voice_control_data);
+    pub_push_msg(nuc_keyboard_publisher,&receive_pc_keyboard_data);
 }
 
 static void transmission_topic_sub_pull(void)
@@ -372,7 +382,11 @@ void UnpackPCData(void)
                 {
                     uppack_pc_cmd_chassis_data();
                 }
-                if(Rx_data[2] == 0x21)//机械臂数据包
+                else if(Rx_data[2] == 0x14)//键盘数据包
+                {
+                    uppack_keyboard_data();
+                }
+                else if(Rx_data[2] == 0x21)//机械臂数据包
                 {
                     uppack_pc_cmd_arm_data();
                 }

@@ -24,6 +24,10 @@ extern ramp_obj_t *km_vx_ramp;//x轴控制斜坡
 extern ramp_obj_t *km_vy_ramp;//y周控制斜坡
 extern ramp_obj_t *km_vw_ramp; // 旋转控制斜坡，需在外部定义
 
+extern ramp_obj_t *nuc_km_vx_ramp;//x轴控制斜坡
+extern ramp_obj_t *nuc_km_vy_ramp;//y周控制斜坡
+extern ramp_obj_t *nuc_km_vw_ramp; // 旋转控制斜坡，需在外部定义
+
 static float base_delta = 3.0f  / KEY_ACC_TIME;
 static float base_delta_w = MAX_CHASSIS_VW_SPEED  / KEY_ACC_TIME;
 
@@ -46,10 +50,10 @@ keyboard_control_t keyboard = {
         .vx = 0, .vy = 0, .vw = 0,
         .max_spd = 3000,
         .move_mode = NORMAL_MODE,
-        .shift = {KEY_RELEASE, 0, 500, 0},   // SHIFT长按500ms
+        .shift = {KEY_RELEASE, 0, 500, 0},   // SHIFT长按800ms
         .ctrl  = {KEY_RELEASE, 0, 500, 0},   // CTRL长按800ms
-        .v     = {KEY_RELEASE, 0, 800, 0},   // V键短按500ms
-        .b     = {KEY_RELEASE, 0, 800, 0},   // V键短按500ms
+        .v     = {KEY_RELEASE, 0, 800, 0},   // V键短按800ms
+        .b     = {KEY_RELEASE, 0, 800, 0},   // V键短按800ms
         .g     = {KEY_RELEASE, 0, 800, 0},   // G键快速响应
         .f     = {KEY_RELEASE, 0, 800, 0},    // F键快速响应
         .x     = {KEY_RELEASE, 0, 800, 0},    // F键快速响应
@@ -57,6 +61,20 @@ keyboard_control_t keyboard = {
         .r     = {KEY_RELEASE, 0, 800, 0}    // F键快速响应
 };
 
+keyboard_control_t nuc_keyboard = {
+        .vx = 0, .vy = 0, .vw = 0,
+        .max_spd = 3000,
+        .move_mode = NORMAL_MODE,
+        .shift = {KEY_RELEASE, 0, 500, 0},   // SHIFT长按800ms
+        .ctrl  = {KEY_RELEASE, 0, 500, 0},   // CTRL长按800ms
+        .v     = {KEY_RELEASE, 0, 800, 0},   // V键短按800ms
+        .b     = {KEY_RELEASE, 0, 800, 0},   // V键短按800ms
+        .g     = {KEY_RELEASE, 0, 800, 0},   // G键快速响应
+        .f     = {KEY_RELEASE, 0, 800, 0},    // F键快速响应
+        .x     = {KEY_RELEASE, 0, 800, 0},    // F键快速响应
+        .z     = {KEY_RELEASE, 0, 800, 0},
+        .r     = {KEY_RELEASE, 0, 800, 0}    // F键快速响应
+};
 mouse_control_t mouse = {0} ;
 
 void key_state_machine(key_status_t *key, uint8_t key_input)
@@ -279,4 +297,125 @@ void PC_keyboard_mouse(const pc_control_t *pc_control)
 //        arm_cmd.ctrl_mode = ARM_INIT;
 //    }
 }
+
+
+void NUC_keyboard_mouse(const pc_control_t *pc_control)
+{
+
+    key_state_machine(&nuc_keyboard.x, pc_control->keyboard.bit.X);
+    key_state_machine(&nuc_keyboard.z, pc_control->keyboard.bit.Z);
+    // X按键用于打开夹爪
+    if(nuc_keyboard.x.state == KEY_PRESS_ONCE) {
+        gripper_state = Gripper_OPEN;
+    }
+    // Z按键用于关闭夹爪
+    if(nuc_keyboard.z.state == KEY_PRESS_ONCE) {
+        gripper_state = Gripper_CLOSE;
+    }
+
+//    key_state_machine(&keyboard.g,pc_control->keyboard.bit.G);
+//    if (keyboard.g.state == KEY_PRESS_ONCE)
+//    {
+//        cmd_chassis.last_mode= cmd_chassis.ctrl_mode;
+//        cmd_chassis.ctrl_mode =CHASSIS_RELAX;
+//    }
+//
+//    key_state_machine(&keyboard.f,pc_control->keyboard.bit.F);
+//    if (keyboard.f.state == KEY_PRESS_ONCE)
+//    {
+//        cmd_chassis.last_mode= cmd_chassis.ctrl_mode;
+//        cmd_chassis.ctrl_mode=CHASSIS_ENABLE;
+//    }
+
+    key_state_machine(&nuc_keyboard.b,pc_control->keyboard.bit.B);
+    if (nuc_keyboard.b.state == KEY_PRESS_LONG)
+    {
+        arm_cmd.last_mode = arm_cmd.ctrl_mode;
+        arm_cmd.ctrl_mode = ARM_DISABLE;
+    }
+
+    key_state_machine(&nuc_keyboard.v,pc_control->keyboard.bit.V);
+    if (nuc_keyboard.v.state == KEY_PRESS_LONG)
+    {
+        arm_cmd.last_mode = arm_cmd.ctrl_mode;
+        arm_cmd.ctrl_mode = ARM_ENABLE;
+    }
+
+    /* 模式优先级处理 */
+    nuc_keyboard.move_mode = NORMAL_MODE;
+    nuc_keyboard.max_spd = 0.8f;
+    // 先处理CTRL
+    key_state_machine(&nuc_keyboard.ctrl, pc_control->keyboard.bit.CTRL);
+    if(nuc_keyboard.ctrl.state == KEY_PRESS_LONG) {
+        nuc_keyboard.move_mode = SLOW_MODE;
+        nuc_keyboard.max_spd = 0.4f;
+    }
+    // 后处理SHIFT（更高优先级）
+    key_state_machine(&nuc_keyboard.shift, pc_control->keyboard.bit.SHIFT);
+    if(nuc_keyboard.shift.state == KEY_PRESS_LONG) {
+        nuc_keyboard.move_mode = FAST_MODE;
+        nuc_keyboard.max_spd = 1.2f;
+    }
+
+    /* 计算动态参数 */
+    float delta = (nuc_keyboard.move_mode == FAST_MODE) ?
+                  (base_delta * BOOST_FACTOR) :
+                  (nuc_keyboard.move_mode == SLOW_MODE) ?
+                  (base_delta * MICRO_SENSITIVITY) :
+                  base_delta;
+
+    float decay = (nuc_keyboard.move_mode == SLOW_MODE) ?
+                  MICRO_DECAY : NORMAL_DECAY;
+
+
+    // 前后方向（W/S -> vy）
+    if(pc_control->keyboard.bit.W) {
+        nuc_keyboard.vx += delta;
+    } else if(pc_control->keyboard.bit.S) {
+        nuc_keyboard.vx -= delta;
+    } else {
+        nuc_keyboard.vx *= (1 - km_vy_ramp->calc(km_vy_ramp) * decay);
+    }
+
+    // 左右方向（A/D -> vx）
+    if(pc_control->keyboard.bit.A) {
+        nuc_keyboard.vy -= delta;
+    } else if(pc_control->keyboard.bit.D) {
+        nuc_keyboard.vy += delta;
+    } else {
+        nuc_keyboard.vy *= (1 - km_vy_ramp->calc(km_vy_ramp) * decay);
+    }
+
+    // 旋转控制（Q/E）
+    if(pc_control->keyboard.bit.Q) {
+        nuc_keyboard.vw -= base_delta_w * 1.25f;  // 旋转灵敏度系数
+    } else if(pc_control->keyboard.bit.E) {
+        nuc_keyboard.vw += base_delta_w * 1.25f;
+    } else {
+        nuc_keyboard.vw *= (1 - km_vw_ramp->calc(km_vw_ramp) * decay);
+    }
+
+//    // 死区处理
+//    if(fabs(keyboard.vx) < DEAD_ZONE) keyboard.vx = 0;
+//    if(fabs(keyboard.vy) < DEAD_ZONE) keyboard.vy = 0;
+//    if(fabs(keyboard.vw) < DEAD_ZONE) keyboard.vw = 0;
+
+
+    VAL_LIMIT(nuc_keyboard.vx, -nuc_keyboard.max_spd, nuc_keyboard.max_spd);
+    VAL_LIMIT(nuc_keyboard.vy, -nuc_keyboard.max_spd, nuc_keyboard.max_spd);
+
+    VAL_LIMIT(nuc_keyboard.vx, -MAX_CHASSIS_VX_SPEED, MAX_CHASSIS_VX_SPEED);
+    VAL_LIMIT(nuc_keyboard.vy, -MAX_CHASSIS_VY_SPEED, MAX_CHASSIS_VY_SPEED);
+    VAL_LIMIT(nuc_keyboard.vw, -MAX_CHASSIS_VW_SPEED, MAX_CHASSIS_VW_SPEED);
+
+
+
+//    key_state_machine(&keyboard.r,pc_control->keyboard.bit.R);
+//    if (keyboard.r.state == KEY_PRESS_ONCE)
+//    {
+//        arm_cmd.last_mode = arm_cmd.ctrl_mode;
+//        arm_cmd.ctrl_mode = ARM_INIT;
+//    }
+}
+
 

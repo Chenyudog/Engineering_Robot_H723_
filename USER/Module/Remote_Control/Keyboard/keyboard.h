@@ -135,5 +135,5 @@ void key_state_machine(key_status_t *key, uint8_t key_input);
 
 pc_control_t convert_remote_to_pc(const vt13_remote_parsed_data_t *remote);
 void PC_keyboard_mouse(const pc_control_t *pc_control);
-
+void NUC_keyboard_mouse(const pc_control_t *pc_control);
 #endif //CTRBOARD_H7_ALL_KEYBOARD_H
