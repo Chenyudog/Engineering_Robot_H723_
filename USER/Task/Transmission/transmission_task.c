@@ -37,7 +37,7 @@
 #define ARM_JOINTS_BUF_LEN         (USB_ARM_JOINTS_DATA_LEN+HEAD_BUF_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+49(数据)+2(校验)
 
 #define USB_VOICE_CONTROL_LEN    24
-#define VOICE_CONTROL_BUF_LEN         (HEAD_BUF_LEN+USB_VOICE_CONTROL_LEN+CRC_BUF_LEN)      // ??????4(??)+24(????)+2(У??)
+#define VOICE_CONTROL_BUF_LEN         (HEAD_BUF_LEN+USB_VOICE_CONTROL_LEN+CRC_BUF_LEN)      // 总长度：4(帧头)+18(数据)+2(校验)
 
 #define HEADER_SOF 0xFF
 
@@ -389,6 +389,10 @@ void UnpackPCData(void)
                 else if(Rx_data[2] == 0x21)//机械臂数据包
                 {
                     uppack_pc_cmd_arm_data();
+                }
+                if(Rx_data[2] == 0x38)//机械臂数据包
+                {
+                    uppack_pc_cmd_voice_control();
                 }
 
 /* --------------------------------在此处添加要从上位机接收的id以及解包函数 --------------------------------- */
